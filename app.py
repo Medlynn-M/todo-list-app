@@ -15,15 +15,14 @@ if st.button("Add Task"):
 
 st.write("### Your Tasks:")
 
-# Collect tasks to remove
 to_remove = []
 for i, t in enumerate(st.session_state["tasks"]):
     if st.checkbox(t, key=f"task_{i}"):
         to_remove.append(i)
 
-# Remove checked tasks after all checkboxes rendered
+# Remove checked tasks after checkboxes are rendered
 if to_remove:
     for idx in sorted(to_remove, reverse=True):
         st.session_state["tasks"].pop(idx)
-    st.experimental_set_query_params()  # Just triggers a re-render
+    # No need to use st.experimental_set_query_params or st.query_params
 
