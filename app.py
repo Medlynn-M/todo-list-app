@@ -7,61 +7,61 @@ AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
 AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
 AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
-# Connect to your Airtable table
+# Connect to Airtable table
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-def get_tasks_for_today():
-    today_str = datetime.now().strftime("%Y-%m-%d")
+def get_tasks_for_date(date_str):
     all_records = table.all()
-    return [
-        {
-            "id": r["id"],
-            "task": r["fields"].get("Task", ""),
-            "alarm": r["fields"].get("Alarm", ""),
-        }
-        for r in all_records
-        if r["fields"].get("Date") == today_str
-    ]
+    tasks = []
+    for r in all_records:
+        fields = r.get("fields", {})
+        if fields.get("Date") == date_str:
+            tasks.append({
+                "id": r["id"],
+                "task": fields.get("Task", ""),
+                "completed": fields.get("Completed", False)
+            })
+    return tasks
 
-def add_task(task_text, alarm_time):
-    today_str = datetime.now().strftime("%Y-%m-%d")
+def update_task_completion(record_id, completed):
+    table.update(record_id, {"Completed": completed})
+
+def add_task(task_text, date_str):
     table.create({
         "Task": task_text,
-        "Alarm": alarm_time,
-        "Date": today_str
+        "Date": date_str,
+        "Completed": False
     })
-
-def delete_task(record_id):
-    table.delete(record_id)
 
 st.title("🚀 Boost Your Day!")
 
-new_task = st.text_input("🌟 Add an exciting mission:")
-new_alarm = st.text_input("⏰ Set alarm time (HH:MM) - optional")
+# Sidebar date selection
+selected_date = st.sidebar.date_input("Select date", datetime.today())
+selected_date_str = selected_date.strftime("%Y-%m-%d")
+st.sidebar.markdown(f"### Tasks for {selected_date_str}")
 
+tasks = get_tasks_for_date(selected_date_str)
+
+if not tasks:
+    st.write("No missions for this day. Add some below!")
+
+# Display tasks with persistent checkbox and color indicators
+for task in tasks:
+    completed = task.get("completed", False)
+    label_text = task["task"]
+    # Show green check emoji for completed, red cross for incomplete
+    label = f"✅ {label_text}" if completed else f"❌ {label_text}"
+
+    # Checkbox to toggle completion state
+    new_completed = st.checkbox(label, value=completed, key=task["id"])
+    if new_completed != completed:
+        update_task_completion(task["id"], new_completed)
+        st.experimental_rerun()
+
+# Input to add new task to selected date
+new_task = st.text_input("🌟 Add a new mission:")
 if st.button("🔥 Add Mission"):
-    if new_task:
-        add_task(new_task, new_alarm)
-        st.success(f"Mission added: {new_task} with alarm {new_alarm}")
-
-tasks = get_tasks_for_today()
-
-now_str = datetime.now().strftime("%H:%M")
-
-if tasks:
-    choices = []
-    for t in tasks:
-        alarm = t.get("alarm", "")
-        alert = ""
-        if alarm and now_str >= alarm:
-            alert = " ⏰ ALARM! Time reached!"
-        task_text = f"{t['task']}{alert}" if alarm else t['task']
-        choices.append(task_text)
-
-    selected_idx = st.radio("Select a mission to mark as done:", range(len(tasks)), format_func=lambda x: choices[x])
-
-    if st.button("✅ Mark as Done!"):
-        delete_task(tasks[selected_idx]['id'])
-        st.info(f"Mission accomplished: {tasks[selected_idx]['task']}")
-else:
-    st.info("No missions for today. Add some to get started!")
+    if new_task.strip():
+        add_task(new_task.strip(), selected_date_str)
+        st.success(f"Added new mission for {selected_date_str}!")
+        st.experimental_rerun()
