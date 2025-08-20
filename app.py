@@ -115,38 +115,44 @@ def signup_block():
         st.session_state.reg_username = ""
         st.session_state.reg_password = ""
         st.session_state.reg_password_confirm = ""
+        st.session_state.show_register_form = False
         st.session_state.mode = "login"
+        st.rerun()
 
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
     st.rerun()
 
-# Session default states
+# Initialize session state variables
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "mode" not in st.session_state:
     st.session_state.mode = "login"
+if "show_register_form" not in st.session_state:
+    st.session_state.show_register_form = False
 
 # Sidebar choice for user navigation
 st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
-    # Show login block first
+    # Always show login block first
     login_block()
-    # Under login block show signup option button and handle switching
-    if st.button("New here? Enroll your call sign"):
-        st.session_state.mode = "register"
-        st.rerun()
 
-    # If mode is register, show signup block with backlink to login
-    if st.session_state.mode == "register":
+    # Button to toggle registration form below login
+    if not st.session_state.show_register_form:
+        if st.button("New here? Enroll your call sign ✨"):
+            st.session_state.show_register_form = True
+            st.rerun()
+
+    # Show registration form toggle area
+    if st.session_state.show_register_form:
         st.markdown("---")
         signup_block()
-        if st.button("Already a Commander? Return to the Launchpad"):
-            st.session_state.mode = "login"
+        if st.button("Already a Commander? Return to Launchpad 👈"):
+            st.session_state.show_register_form = False
             st.rerun()
 
     st.stop()
