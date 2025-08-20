@@ -84,11 +84,11 @@ def login():
         st.session_state.user = username
         st.session_state.logged_in = True
         st.success(f"Welcome back, {username}!")
-        st.experimental_rerun()
+        st.rerun()
         return True
     if new_user_clicked:
         st.session_state.mode = "register"
-        st.experimental_rerun()
+        st.rerun()
     return False
 
 def register():
@@ -115,12 +115,12 @@ def register():
         })
         st.success("Registration successful! Please switch to Log In and enter your credentials.")
         st.session_state.mode = "login"
-        st.experimental_rerun()
+        st.rerun()
 
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
-    st.experimental_rerun()
+    st.rerun()
 
 # Initialize session state variables
 if "user" not in st.session_state:
