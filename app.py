@@ -69,21 +69,27 @@ def login():
     st.header("🔐 Welcome back! Please log in")
     username = st.text_input("Username", key="login_username")
     password = st.text_input("Password", type="password", key="login_password")
+    new_user_clicked = st.button("Sign Up (New User)")
     if st.button("Log In"):
         if not username or not password:
             st.error("Please enter both username and password.")
-            return
+            return False
         if not username_exists(username):
-            st.error("Username does not exist. Please register.")
-            return
+            st.error("Username does not exist. Please register below.")
+            return False
         pw_hash = get_user_password_hash(username)
         if pw_hash != hash_password(password):
             st.error("Incorrect password. Please try again.")
-            return
+            return False
         st.session_state.user = username
         st.session_state.logged_in = True
         st.success(f"Welcome back, {username}!")
         st.experimental_rerun()
+        return True
+    if new_user_clicked:
+        st.session_state.mode = "register"
+        st.experimental_rerun()
+    return False
 
 def register():
     st.header("📝 Create your Companion Profile")
@@ -116,7 +122,7 @@ def logout():
     st.session_state.logged_in = False
     st.experimental_rerun()
 
-# Initialize session state vars
+# Initialize session state variables
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -124,81 +130,79 @@ if "logged_in" not in st.session_state:
 if "mode" not in st.session_state:
     st.session_state.mode = "login"
 
-# Sidebar mode selection
+# Authentication UI
 st.sidebar.title("User Authentication")
-mode_option = st.sidebar.radio("Select mode:", ["Log In", "Register"])
-st.session_state.mode = mode_option.lower()
 
-# Authentication flow
 if not st.session_state.logged_in:
     if st.session_state.mode == "login":
-        login()  # show login form
+        login()
+    elif st.session_state.mode == "register":
+        register()
+    st.stop()
+
+# Main app UI after login
+st.sidebar.title(f"Hello, {st.session_state.user}!")
+if st.sidebar.button("Log Out"):
+    logout()
+
+selected_date = st.sidebar.date_input("🎯 Pick your day!", datetime.today())
+selected_date_str = selected_date.strftime("%Y-%m-%d")
+st.sidebar.markdown(f"#### 📅 Missions for {selected_date_str}")
+
+st.markdown("""
+    <style>
+        .completed-label {color: #43ea54; font-weight: bold;}
+        .incomplete-label {color: #fa4372; font-weight: bold;}
+        .delete-btn button {background: #fa2656;}
+        .add-btn button {background: #ffe766; color: black;}
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title(f"🧑‍🚀 {st.session_state.user}'s Daily Mission Companion!")
+st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
+
+tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
+
+if not tasks:
+    st.info("No missions yet for this day. Ready to conquer something new? 🥷")
+
+for task in tasks:
+    completed = task.get("completed", False)
+    label_text = task["task"]
+    if completed:
+        label = f"<span class='completed-label'>🌟 Great job! {label_text}</span>"
     else:
-        register()  # show registration form
-    st.stop()  # block main app until logged in
-else:
-    st.sidebar.title(f"Hello, {st.session_state.user}!")
-    if st.sidebar.button("Log Out"):
-        logout()
+        label = f"<span class='incomplete-label'>💡 Let's do: {label_text}</span>"
 
-    selected_date = st.sidebar.date_input("🎯 Pick your day!", datetime.today())
-    selected_date_str = selected_date.strftime("%Y-%m-%d")
-    st.sidebar.markdown(f"#### 📅 Missions for {selected_date_str}")
-
-    st.markdown("""
-        <style>
-            .completed-label {color: #43ea54; font-weight: bold;}
-            .incomplete-label {color: #fa4372; font-weight: bold;}
-            .delete-btn button {background: #fa2656;}
-            .add-btn button {background: #ffe766; color: black;}
-        </style>
-        """, unsafe_allow_html=True)
-
-    st.title(f"🧑‍🚀 {st.session_state.user}'s Daily Mission Companion!")
-    st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
-
-    tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
-
-    if not tasks:
-        st.info("No missions yet for this day. Ready to conquer something new? 🥷")
-
-    for task in tasks:
-        completed = task.get("completed", False)
-        label_text = task["task"]
-        if completed:
-            label = f"<span class='completed-label'>🌟 Great job! {label_text}</span>"
-        else:
-            label = f"<span class='incomplete-label'>💡 Let's do: {label_text}</span>"
-
-        col1, col2 = st.columns([9, 1])
-        with col1:
-            new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
-            st.markdown(label, unsafe_allow_html=True)
-            if new_completed != completed:
-                update_task_completion(task["id"], new_completed)
-                st.rerun()
-        with col2:
-            st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-            if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
-                delete_task(task["id"])
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("### ✨ New quest for the day:")
-    new_task = st.text_input("What powerful mission should we tackle together today?")
-
-    st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-    if st.button("⚡ Add Mission"):
-        if new_task.strip():
-            add_task(new_task.strip(), selected_date_str, st.session_state.user)
-            st.success("Your new mission is ready for liftoff! 🚀")
+    col1, col2 = st.columns([9, 1])
+    with col1:
+        new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
+        st.markdown(label, unsafe_allow_html=True)
+        if new_completed != completed:
+            update_task_completion(task["id"], new_completed)
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
+            delete_task(task["id"])
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("""
-    ---
-    **Tip:** Click the check to mark a mission completed, or 🗑️ to delete it.  
-    Keep coming back to see your super progress! 🌈
+st.markdown("### ✨ New quest for the day:")
+new_task = st.text_input("What powerful mission should we tackle together today?")
 
-    #### Your companion awaits powerful new adventures every day!
-    """)
+st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+if st.button("⚡ Add Mission"):
+    if new_task.strip():
+        add_task(new_task.strip(), selected_date_str, st.session_state.user)
+        st.success("Your new mission is ready for liftoff! 🚀")
+        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+---
+**Tip:** Click the check to mark a mission completed, or 🗑️ to delete it.  
+Keep coming back to see your super progress! 🌈
+
+#### Your companion awaits powerful new adventures every day!
+""")
