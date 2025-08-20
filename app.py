@@ -1,6 +1,6 @@
 from pyairtable import Table
 import streamlit as st
-from datetime import datetime, time
+from datetime import datetime
 
 # Airtable config from secrets
 AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
@@ -9,31 +9,23 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-def parse_time(t_str):
-    try:
-        return datetime.strptime(t_str, "%H:%M").time()
-    except:
-        return None
-
 def get_tasks_for_date(date_str):
     all_records = table.all()
+    seen = set()
     tasks = []
     for r in all_records:
         fields = r.get("fields", {})
         if fields.get("Date") == date_str:
-            tasks.append({
-                "id": r["id"],
-                "task": fields.get("Task", ""),
-                "completed": fields.get("Completed", False),
-                "time": fields.get("Time", "")  # Make sure you have a "Time" field in Airtable
-            })
-
-    # Sort by time if available; otherwise by task alphabetically
-    def sort_key(task):
-        task_time = parse_time(task.get("time", ""))
-        return (task_time if task_time else time.max, task["task"].lower())
-
-    return sorted(tasks, key=sort_key)
+            task_text = fields.get("Task", "")
+            if task_text.lower() not in seen:
+                seen.add(task_text.lower())
+                tasks.append({
+                    "id": r["id"],
+                    "task": task_text,
+                    "completed": fields.get("Completed", False)
+                })
+    # Alphabetical order by task text
+    return sorted(tasks, key=lambda x: x["task"].lower())
 
 def update_task_completion(record_id, completed):
     table.update(record_id, {"Completed": completed})
@@ -74,7 +66,7 @@ tasks = get_tasks_for_date(selected_date_str)
 if not tasks:
     st.info("No missions yet for this day. Ready to conquer something new? 🥷")
 
-# Display missions (sorted by time then alphabetically) with colorful icons and playful messages
+# Display missions alphabetically with colorful icons and playful messages
 for task in tasks:
     completed = task.get("completed", False)
     label_text = task["task"]
