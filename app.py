@@ -4,7 +4,7 @@ from datetime import datetime
 import random
 
 # Airtable config from secrets
-AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
+AIRTABLE_BASE_ID = "appf3qCx67knSZq16"
 AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
 AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
