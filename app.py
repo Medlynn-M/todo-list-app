@@ -84,7 +84,7 @@ def login_block():
         st.session_state.user = username
         st.session_state.logged_in = True
         st.success(f"Welcome aboard, Commander {username}!")
-        st.experimental_rerun()
+        st.rerun()
         return True
     return False
 
@@ -112,12 +112,12 @@ def signup_block():
         })
         st.success("Profile created! Ready to command? Head back to login control.")
         st.session_state.mode = "login"
-        st.experimental_rerun()
+        st.rerun()
 
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
-    st.experimental_rerun()
+    st.rerun()
 
 # Session default states
 if "user" not in st.session_state:
@@ -136,7 +136,7 @@ if not st.session_state.logged_in:
     # Under login block show signup option button and handle switching
     if st.button("New here? Enroll your call sign"):
         st.session_state.mode = "register"
-        st.experimental_rerun()
+        st.rerun()
 
     # If mode is register, show signup block with backlink to login
     if st.session_state.mode == "register":
@@ -144,7 +144,7 @@ if not st.session_state.logged_in:
         signup_block()
         if st.button("Already a Commander? Return to Mission Control Login"):
             st.session_state.mode = "login"
-            st.experimental_rerun()
+            st.rerun()
 
     st.stop()
 
