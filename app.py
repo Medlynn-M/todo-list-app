@@ -65,46 +65,43 @@ def suggest_usernames(base_name):
         suggestions.append(f"{base_name}_{random.randint(10,99)}")
     return suggestions
 
-def login():
-    st.header("🔐 Welcome back! Please log in")
-    username = st.text_input("Username", key="login_username")
-    password = st.text_input("Password", type="password", key="login_password")
-    new_user_clicked = st.button("Sign Up (New User)")
-    if st.button("Log In"):
+def login_block():
+    st.header("👋 Welcome Back, Commander!")
+    username = st.text_input("Your Call Sign (Username)", key="login_username")
+    password = st.text_input("Secret Code (Password)", type="password", key="login_password")
+    login_clicked = st.button("Launch Mission Control")
+    if login_clicked:
         if not username or not password:
-            st.error("Please enter both username and password.")
+            st.error("Please enter both your call sign and secret code.")
             return False
         if not username_exists(username):
-            st.error("Username does not exist. Please register below.")
+            st.error("Stranger alert! Call sign not found. Ready to enroll?")
             return False
         pw_hash = get_user_password_hash(username)
         if pw_hash != hash_password(password):
-            st.error("Incorrect password. Please try again.")
+            st.error("Invalid secret code. Please try again.")
             return False
         st.session_state.user = username
         st.session_state.logged_in = True
-        st.success(f"Welcome back, {username}!")
-        st.rerun()
+        st.success(f"Welcome aboard, Commander {username}!")
+        st.experimental_rerun()
         return True
-    if new_user_clicked:
-        st.session_state.mode = "register"
-        st.rerun()
     return False
 
-def register():
-    st.header("📝 Create your Companion Profile")
-    username = st.text_input("Choose a username", key="reg_username")
-    password = st.text_input("Choose a password", type="password", key="reg_password")
-    password_confirm = st.text_input("Confirm password", type="password", key="reg_password_confirm")
-    if st.button("Register"):
+def signup_block():
+    st.header("🛠️ Launch New Mission: Create Your Commander Profile")
+    username = st.text_input("Pick Your Call Sign (Username)", key="reg_username")
+    password = st.text_input("Choose a Secret Code (Password)", type="password", key="reg_password")
+    password_confirm = st.text_input("Confirm Secret Code", type="password", key="reg_password_confirm")
+    if st.button("Enroll Me!"):
         if not username or not password or not password_confirm:
-            st.error("Please fill all fields.")
+            st.error("All fields are mission critical. Fill them all.")
             return
         if password != password_confirm:
-            st.error("Passwords do not match.")
+            st.error("Codes don't match. Recheck your secret code.")
             return
         if username_exists(username):
-            st.error("Username taken. Try another one or log in.")
+            st.error("Call sign already taken by another commander. Choose a different one.")
             return
         table.create({
             "User": username,
@@ -113,16 +110,16 @@ def register():
             "Completed": True,
             "PasswordHash": hash_password(password)
         })
-        st.success("Registration successful! Please switch to Log In and enter your credentials.")
+        st.success("Profile created! Ready to command? Head back to login control.")
         st.session_state.mode = "login"
-        st.rerun()
+        st.experimental_rerun()
 
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
-    st.rerun()
+    st.experimental_rerun()
 
-# Initialize session state variables
+# Session default states
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -130,79 +127,89 @@ if "logged_in" not in st.session_state:
 if "mode" not in st.session_state:
     st.session_state.mode = "login"
 
-# Authentication UI
-st.sidebar.title("User Authentication")
+# Sidebar choice for user navigation
+st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
-    if st.session_state.mode == "login":
-        login()
-    elif st.session_state.mode == "register":
-        register()
+    # Show login block first
+    login_block()
+    # Under login block show signup option button and handle switching
+    if st.button("New here? Enroll your call sign"):
+        st.session_state.mode = "register"
+        st.experimental_rerun()
+
+    # If mode is register, show signup block with backlink to login
+    if st.session_state.mode == "register":
+        st.markdown("---")
+        signup_block()
+        if st.button("Already a Commander? Return to Mission Control Login"):
+            st.session_state.mode = "login"
+            st.experimental_rerun()
+
     st.stop()
 
-# Main app UI after login
-st.sidebar.title(f"Hello, {st.session_state.user}!")
-if st.sidebar.button("Log Out"):
-    logout()
+else:
+    # Logged in: main mission control UI
+    st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
+    if st.sidebar.button("Abort Mission: Log Out"):
+        logout()
 
-selected_date = st.sidebar.date_input("🎯 Pick your day!", datetime.today())
-selected_date_str = selected_date.strftime("%Y-%m-%d")
-st.sidebar.markdown(f"#### 📅 Missions for {selected_date_str}")
+    selected_date = st.sidebar.date_input("🎯 Select Mission Date", datetime.today())
+    selected_date_str = selected_date.strftime("%Y-%m-%d")
+    st.sidebar.markdown(f"#### Missions for {selected_date_str}")
 
-st.markdown("""
-    <style>
-        .completed-label {color: #43ea54; font-weight: bold;}
-        .incomplete-label {color: #fa4372; font-weight: bold;}
-        .delete-btn button {background: #fa2656;}
-        .add-btn button {background: #ffe766; color: black;}
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("""
+        <style>
+            .completed-label {color: #43ea54; font-weight: bold;}
+            .incomplete-label {color: #fa4372; font-weight: bold;}
+            .delete-btn button {background: #fa2656;}
+            .add-btn button {background: #ffe766; color: black;}
+        </style>
+        """, unsafe_allow_html=True)
 
-st.title(f"🧑‍🚀 {st.session_state.user}'s Daily Mission Companion!")
-st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
+    st.title(f"🧑‍🚀 Commander {st.session_state.user}'s Mission Control")
+    st.markdown("#### Every mission counts. Let's conquer today's challenges! 🚀")
 
-tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
+    tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
 
-if not tasks:
-    st.info("No missions yet for this day. Ready to conquer something new? 🥷")
+    if not tasks:
+        st.info("No missions logged for this date. Ready to add a new objective? 🛰️")
 
-for task in tasks:
-    completed = task.get("completed", False)
-    label_text = task["task"]
-    if completed:
-        label = f"<span class='completed-label'>🌟 Great job! {label_text}</span>"
-    else:
-        label = f"<span class='incomplete-label'>💡 Let's do: {label_text}</span>"
+    for task in tasks:
+        completed = task.get("completed", False)
+        label_text = task["task"]
+        if completed:
+            label = f"<span class='completed-label'>🌟 Completed: {label_text}</span>"
+        else:
+            label = f"<span class='incomplete-label'>💡 Pending: {label_text}</span>"
 
-    col1, col2 = st.columns([9, 1])
-    with col1:
-        new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
-        st.markdown(label, unsafe_allow_html=True)
-        if new_completed != completed:
-            update_task_completion(task["id"], new_completed)
+        col1, col2 = st.columns([9, 1])
+        with col1:
+            new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
+            st.markdown(label, unsafe_allow_html=True)
+            if new_completed != completed:
+                update_task_completion(task["id"], new_completed)
+                st.rerun()
+        with col2:
+            st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+            if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
+                delete_task(task["id"])
+                st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("### 📝 Set a new mission:")
+    new_task = st.text_input("What objective shall we pursue today?")
+
+    st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+    if st.button("🚀 Add Mission"):
+        if new_task.strip():
+            add_task(new_task.strip(), selected_date_str, st.session_state.user)
+            st.success("Mission accepted! Onward, Commander!")
             st.rerun()
-    with col2:
-        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
-            delete_task(task["id"])
-            st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("### ✨ New quest for the day:")
-new_task = st.text_input("What powerful mission should we tackle together today?")
-
-st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-if st.button("⚡ Add Mission"):
-    if new_task.strip():
-        add_task(new_task.strip(), selected_date_str, st.session_state.user)
-        st.success("Your new mission is ready for liftoff! 🚀")
-        st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown("""
----
-**Tip:** Click the check to mark a mission completed, or 🗑️ to delete it.  
-Keep coming back to see your super progress! 🌈
-
-#### Your companion awaits powerful new adventures every day!
-""")
+    st.markdown("""
+    ---
+    **Tip:** Tick the checkbox to mark a mission complete, or use the bin icon to remove it.  
+    Stay sharp, Commander. Your legacy awaits! 🌟
+    """)
