@@ -53,7 +53,7 @@ if current_user == "":
         if st.button("Confirm username"):
             st.session_state.user = st.session_state.user_to_confirm
             st.session_state.user_to_confirm = ""
-            st.experimental_rerun()
+            st.rerun()
 
     st.stop()  # Wait until username confirmed
 
