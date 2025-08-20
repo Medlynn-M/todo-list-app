@@ -27,13 +27,6 @@ def get_user_password_hash(username):
             return fields.get("PasswordHash", None)
     return None
 
-def suggest_usernames(base_name):
-    suggestions = []
-    for i in range(1, 10):
-        suggestions.append(f"{base_name}{i}")
-        suggestions.append(f"{base_name}_{random.randint(10,99)}")
-    return suggestions
-
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
     seen = set()
@@ -64,6 +57,13 @@ def add_task(task_text, date_str, user):
 
 def delete_task(record_id):
     table.delete(record_id)
+
+def suggest_usernames(base_name):
+    suggestions = []
+    for i in range(1, 10):
+        suggestions.append(f"{base_name}{i}")
+        suggestions.append(f"{base_name}_{random.randint(10,99)}")
+    return suggestions
 
 def login():
     st.header("🔐 Welcome back! Please log in")
@@ -107,7 +107,7 @@ def register():
             "Completed": True,
             "PasswordHash": hash_password(password)
         })
-        st.success("Registration successful! Please log in now.")
+        st.success("Registration successful! Please switch to Log In and enter your credentials.")
         st.session_state.mode = "login"
         st.experimental_rerun()
 
@@ -116,7 +116,7 @@ def logout():
     st.session_state.logged_in = False
     st.experimental_rerun()
 
-# Session state initialization
+# Initialize session state vars
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -124,18 +124,18 @@ if "logged_in" not in st.session_state:
 if "mode" not in st.session_state:
     st.session_state.mode = "login"
 
-# User selects login or register mode on sidebar
+# Sidebar mode selection
 st.sidebar.title("User Authentication")
 mode_option = st.sidebar.radio("Select mode:", ["Log In", "Register"])
 st.session_state.mode = mode_option.lower()
 
-# Render auth or app UI depending on login status
+# Authentication flow
 if not st.session_state.logged_in:
     if st.session_state.mode == "login":
-        login()
-    elif st.session_state.mode == "register":
-        register()
-    st.stop()  # Pause until authenticated
+        login()  # show login form
+    else:
+        register()  # show registration form
+    st.stop()  # block main app until logged in
 else:
     st.sidebar.title(f"Hello, {st.session_state.user}!")
     if st.sidebar.button("Log Out"):
