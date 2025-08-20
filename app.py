@@ -9,13 +9,23 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-def get_tasks_for_date(date_str):
+# Sidebar username input
+if "user" not in st.session_state or not st.session_state.user:
+    st.session_state.user = st.sidebar.text_input("👤 Enter your username", "")
+
+current_user = st.session_state.user.strip()
+
+if not current_user:
+    st.sidebar.warning("Please enter your username above to view and create missions.")
+    st.stop()
+
+def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
     seen = set()
     tasks = []
     for r in all_records:
         fields = r.get("fields", {})
-        if fields.get("Date") == date_str:
+        if fields.get("Date") == date_str and fields.get("User", "").strip().lower() == user.lower():
             task_text = fields.get("Task", "")
             if task_text.lower() not in seen:
                 seen.add(task_text.lower())
@@ -30,11 +40,12 @@ def get_tasks_for_date(date_str):
 def update_task_completion(record_id, completed):
     table.update(record_id, {"Completed": completed})
 
-def add_task(task_text, date_str):
+def add_task(task_text, date_str, user):
     table.create({
         "Task": task_text,
         "Date": date_str,
-        "Completed": False
+        "Completed": False,
+        "User": user
     })
 
 def delete_task(record_id):
@@ -57,11 +68,11 @@ st.markdown("""
     """, unsafe_allow_html=True
 )
 
-st.title("🧑‍🚀 Your Daily Mission Companion!")
+st.title(f"🧑‍🚀 {current_user}'s Daily Mission Companion!")
 
 st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
 
-tasks = get_tasks_for_date(selected_date_str)
+tasks = get_tasks_for_date_and_user(selected_date_str, current_user)
 
 if not tasks:
     st.info("No missions yet for this day. Ready to conquer something new? 🥷")
@@ -70,7 +81,6 @@ if not tasks:
 for task in tasks:
     completed = task.get("completed", False)
     label_text = task["task"]
-    # Companion-style label
     if completed:
         label = f"<span class='completed-label'>🌟 Great job! {label_text}</span>"
     else:
@@ -78,7 +88,6 @@ for task in tasks:
 
     col1, col2 = st.columns([9,1])
     with col1:
-        # Companion-style checkbox
         new_completed = st.checkbox(
             "", value=completed, key=f"{task['id']}_checkbox"
         )
@@ -100,7 +109,7 @@ new_task = st.text_input("What powerful mission should we tackle together today?
 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
 if st.button("⚡ Add Mission"):
     if new_task.strip():
-        add_task(new_task.strip(), selected_date_str)
+        add_task(new_task.strip(), selected_date_str, current_user)
         st.success("Your new mission is ready for liftoff! 🚀")
         st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
