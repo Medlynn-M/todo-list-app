@@ -2,9 +2,11 @@ import streamlit as st
 
 st.title("AI-powered To Do List")
 
+# Initialize the list if not present
 if "tasks" not in st.session_state:
     st.session_state["tasks"] = []
 
+# Input for new task
 task = st.text_input("Add a new task:")
 if st.button("Add Task"):
     if task:
@@ -12,7 +14,16 @@ if st.button("Add Task"):
         st.success(f"Added: {task}")
 
 st.write("### Your Tasks:")
+
+# Collect tasks to remove
+to_remove = []
 for i, t in enumerate(st.session_state["tasks"]):
-    if st.checkbox(t, key=i):
-        st.session_state["tasks"].pop(i)
-        st.experimental_rerun()
+    if st.checkbox(t, key=f"task_{i}"):
+        to_remove.append(i)
+
+# Remove checked tasks after all checkboxes rendered
+if to_remove:
+    for idx in sorted(to_remove, reverse=True):
+        st.session_state["tasks"].pop(idx)
+    st.experimental_set_query_params()  # Just triggers a re-render
+
