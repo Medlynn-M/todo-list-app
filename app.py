@@ -90,9 +90,21 @@ def login_block():
 
 def signup_block():
     st.header("🛠️ Launch New Mission: Create Your Commander Profile")
+
+    # Show success message if registration completed
+    if st.session_state.get("registration_success", False):
+        st.success("🎉 Congratulations, Commander! Your profile is locked and loaded. Return to the Launchpad to start your mission.")
+        if st.button("Back to Login"):
+            st.session_state.registration_success = False
+            st.session_state.show_register_form = False
+            st.session_state.mode = "login"
+            st.rerun()
+        return
+
     username = st.text_input("Pick Your Call Sign (Username)", key="reg_username")
     password = st.text_input("Choose a Secret Code (Password)", type="password", key="reg_password")
     password_confirm = st.text_input("Confirm Secret Code", type="password", key="reg_password_confirm")
+
     if st.button("Enroll Me!"):
         if not username or not password or not password_confirm:
             st.error("All fields are mission critical. Fill them all.")
@@ -110,10 +122,9 @@ def signup_block():
             "Completed": True,
             "PasswordHash": hash_password(password)
         })
-        st.success("🎉 Congratulations, Commander! Your profile is locked and loaded. Return to the Launchpad to start your mission.")
-        # Do NOT directly set st.session_state.reg_username etc. here (avoids Streamlit error)
-        st.session_state.show_register_form = False
-        st.session_state.mode = "login"
+        # Set flag to show success on rerun, hide form
+        st.session_state.registration_success = True
+        st.session_state.show_register_form = True
         st.rerun()
 
 def logout():
@@ -121,7 +132,7 @@ def logout():
     st.session_state.logged_in = False
     st.rerun()
 
-# Initialize session state variables
+# Initialize session state vars
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -130,30 +141,32 @@ if "mode" not in st.session_state:
     st.session_state.mode = "login"
 if "show_register_form" not in st.session_state:
     st.session_state.show_register_form = False
+if "registration_success" not in st.session_state:
+    st.session_state.registration_success = False
 
-# Sidebar choice - always show login block first
+# Sidebar authentication area
 st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
     login_block()
-
-    # Button toggling registration form visibility
-    if not st.session_state.show_register_form:
+    # Toggle button for registration form
+    if not st.session_state.show_register_form and not st.session_state.registration_success:
         if st.button("New here? Enroll your call sign ✨"):
             st.session_state.show_register_form = True
             st.rerun()
 
-    # Show registration form below button if toggled on
+    # Show registration form conditionally
     if st.session_state.show_register_form:
         st.markdown("---")
         signup_block()
-        if st.button("Already a Commander? Return to Launchpad 👈"):
-            st.session_state.show_register_form = False
-            st.rerun()
+        if not st.session_state.registration_success:
+            if st.button("Already a Commander? Return to Launchpad 👈"):
+                st.session_state.show_register_form = False
+                st.rerun()
 
     st.stop()
 
-# Main logged in UI
+# Main mission control UI after login
 st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
 if st.sidebar.button("Abort Mission: Log Out"):
     logout()
