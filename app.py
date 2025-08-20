@@ -64,4 +64,4 @@ if st.button("🔥 Add Mission"):
     if new_task.strip():
         add_task(new_task.strip(), selected_date_str)
         st.success(f"Added new mission for {selected_date_str}!")
-        st.experimental_rerun()
+        st.rerun()
