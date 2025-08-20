@@ -2,12 +2,11 @@ from pyairtable import Table
 import streamlit as st
 from datetime import datetime
 
-# Load Airtable config from secrets
+# Airtable config from secrets
 AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
 AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
 AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
-# Connect to Airtable table
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
 def get_tasks_for_date(date_str):
@@ -21,8 +20,8 @@ def get_tasks_for_date(date_str):
                 "task": fields.get("Task", ""),
                 "completed": fields.get("Completed", False)
             })
-    # Reverse order: most recently added tasks first
-    return tasks[::-1]
+    # Oldest first (natural order)
+    return tasks
 
 def update_task_completion(record_id, completed):
     table.update(record_id, {"Completed": completed})
@@ -37,41 +36,75 @@ def add_task(task_text, date_str):
 def delete_task(record_id):
     table.delete(record_id)
 
-st.title("🚀 Boost Your Day!")
+# ---- THE ENGAGING INTERFACE ----
 
-# Sidebar date selection
-selected_date = st.sidebar.date_input("Select date", datetime.today())
+# Sidebar date selector
+selected_date = st.sidebar.date_input("🎯 Pick your day!", datetime.today())
 selected_date_str = selected_date.strftime("%Y-%m-%d")
-st.sidebar.markdown(f"### Tasks for {selected_date_str}")
+st.sidebar.markdown(f"#### 📅 Missions for {selected_date_str}")
+
+st.markdown("""
+    <style>
+        .completed-label {color: #43ea54; font-weight: bold;}
+        .incomplete-label {color: #fa4372; font-weight: bold;}
+        .delete-btn button {background: #fa2656;}
+        .add-btn button {background: #ffe766; color: black;}
+    </style>
+    """, unsafe_allow_html=True
+)
+
+st.title("🧑‍🚀 Your Daily Mission Companion!")
+
+st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
 
 tasks = get_tasks_for_date(selected_date_str)
 
 if not tasks:
-    st.write("No missions for this day. Add some below!")
+    st.info("No missions yet for this day. Ready to conquer something new? 🥷")
 
-# Show tasks in reverse order with delete option
+# Display missions (oldest first!) with colorful icons and playful messages
 for task in tasks:
     completed = task.get("completed", False)
     label_text = task["task"]
-    label = f"✅ {label_text}" if completed else f"❌ {label_text}"
+    # Companion-style label
+    if completed:
+        label = f"<span class='completed-label'>🌟 Great job! {label_text}</span>"
+    else:
+        label = f"<span class='incomplete-label'>💡 Let's do: {label_text}</span>"
 
     col1, col2 = st.columns([9,1])
     with col1:
-        # Checkbox for completion status
-        new_completed = st.checkbox(label, value=completed, key=f"{task['id']}_checkbox")
+        # Companion-style checkbox
+        new_completed = st.checkbox(
+            "", value=completed, key=f"{task['id']}_checkbox"
+        )
+        st.markdown(label, unsafe_allow_html=True)
         if new_completed != completed:
             update_task_completion(task["id"], new_completed)
             st.rerun()
     with col2:
-        # Delete button for each mission
+        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
         if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
             delete_task(task["id"])
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# Add new mission
-new_task = st.text_input("🌟 Add a new mission:")
-if st.button("🔥 Add Mission"):
+# Add new mission input & creative call to action
+st.markdown("### ✨ New quest for the day:")
+new_task = st.text_input("What powerful mission should we tackle together today?")
+
+st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+if st.button("⚡ Add Mission"):
     if new_task.strip():
         add_task(new_task.strip(), selected_date_str)
-        st.success(f"Added new mission for {selected_date_str}!")
+        st.success("Your new mission is ready for liftoff! 🚀")
         st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+---
+**Tip:** Click the check to mark a mission completed, or 🗑️ to delete it.  
+Keep coming back to see your super progress! 🌈
+
+#### Your companion awaits powerful new adventures every day!
+""")
