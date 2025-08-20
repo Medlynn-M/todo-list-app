@@ -26,25 +26,36 @@ def suggest_usernames(base_name):
 # User login / registration flow
 if "user" not in st.session_state:
     st.session_state.user = ""
+if "user_available" not in st.session_state:
+    st.session_state.user_available = False
+if "user_to_confirm" not in st.session_state:
+    st.session_state.user_to_confirm = ""
 
 current_user = st.session_state.user.strip()
 
 if current_user == "":
     st.header("🚀 Set up your Companion Profile")
-    new_username = st.text_input("Choose your unique username:")
+    new_username = st.text_input("Choose your unique username:", value="")
 
     if st.button("Check Availability") and new_username.strip():
         name = new_username.strip()
         if username_exists(name):
+            st.session_state.user_available = False
             st.error(f"Sorry, '{name}' is already taken. Try one of these:")
             for sug in suggest_usernames(name):
                 st.write(f"- {sug}")
         else:
-            st.success(f"'{name}' is available! 🎉")
-            if st.button("Confirm username"):
-                st.session_state.user = name
-                st.experimental_rerun()
-    st.stop()  # Stop running further until user sets a valid name
+            st.session_state.user_available = True
+            st.session_state.user_to_confirm = name
+            st.success(f"'{name}' is available! 🎉 Please confirm below.")
+
+    if st.session_state.user_available and st.session_state.user_to_confirm:
+        if st.button("Confirm username"):
+            st.session_state.user = st.session_state.user_to_confirm
+            st.session_state.user_to_confirm = ""
+            st.experimental_rerun()
+
+    st.stop()  # Wait until username confirmed
 
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
