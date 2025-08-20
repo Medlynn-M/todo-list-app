@@ -110,9 +110,12 @@ def signup_block():
             "Completed": True,
             "PasswordHash": hash_password(password)
         })
-        st.success("Profile created! Ready to command? Head back to login control.")
+        st.success("🎉 Congratulations, Commander! Your profile is locked and loaded. Return to the Launchpad to start your mission.")
+        # Clear inputs
+        st.session_state.reg_username = ""
+        st.session_state.reg_password = ""
+        st.session_state.reg_password_confirm = ""
         st.session_state.mode = "login"
-        st.rerun()
 
 def logout():
     st.session_state.user = ""
@@ -142,7 +145,7 @@ if not st.session_state.logged_in:
     if st.session_state.mode == "register":
         st.markdown("---")
         signup_block()
-        if st.button("Already a Commander? Return to Mission Control Login"):
+        if st.button("Already a Commander? Return to the Launchpad"):
             st.session_state.mode = "login"
             st.rerun()
 
