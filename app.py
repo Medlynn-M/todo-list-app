@@ -24,5 +24,3 @@ for i, t in enumerate(st.session_state["tasks"]):
 if to_remove:
     for idx in sorted(to_remove, reverse=True):
         st.session_state["tasks"].pop(idx)
-    # No need to use st.experimental_set_query_params or st.query_params
-
