@@ -16,16 +16,18 @@ def get_tasks_for_today():
     return [
         {
             "id": r["id"],
-            "task": r["fields"].get("Task", "")
+            "task": r["fields"].get("Task", ""),
+            "alarm": r["fields"].get("Alarm", ""),
         }
         for r in all_records
         if r["fields"].get("Date") == today_str
     ]
 
-def add_task(task_text):
+def add_task(task_text, alarm_time):
     today_str = datetime.now().strftime("%Y-%m-%d")
     table.create({
         "Task": task_text,
+        "Alarm": alarm_time,
         "Date": today_str
     })
 
@@ -35,16 +37,27 @@ def delete_task(record_id):
 st.title("🚀 Boost Your Day!")
 
 new_task = st.text_input("🌟 Add an exciting mission:")
+new_alarm = st.text_input("⏰ Set alarm time (HH:MM) - optional")
 
 if st.button("🔥 Add Mission"):
     if new_task:
-        add_task(new_task)
-        st.success(f"Mission added: {new_task}")
+        add_task(new_task, new_alarm)
+        st.success(f"Mission added: {new_task} with alarm {new_alarm}")
 
 tasks = get_tasks_for_today()
 
+now_str = datetime.now().strftime("%H:%M")
+
 if tasks:
-    choices = [t['task'] for t in tasks]
+    choices = []
+    for t in tasks:
+        alarm = t.get("alarm", "")
+        alert = ""
+        if alarm and now_str >= alarm:
+            alert = " ⏰ ALARM! Time reached!"
+        task_text = f"{t['task']}{alert}" if alarm else t['task']
+        choices.append(task_text)
+
     selected_idx = st.radio("Select a mission to mark as done:", range(len(tasks)), format_func=lambda x: choices[x])
 
     if st.button("✅ Mark as Done!"):
