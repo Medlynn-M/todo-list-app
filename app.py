@@ -34,19 +34,22 @@ def suggest_usernames(base_name):
         suggestions.append(f"{base_name}_{random.randint(10,99)}")
     return suggestions
 
-# Initialize session state
+# Initialize session state variables
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "mode" not in st.session_state:
     st.session_state.mode = "login"  # or "register"
+if "user_available" not in st.session_state:
+    st.session_state.user_available = False
+if "user_to_confirm" not in st.session_state:
+    st.session_state.user_to_confirm = ""
 
-# Authentication UI
 def login():
     st.header("🔐 Welcome back! Please log in")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    username = st.text_input("Username", key="login_username")
+    password = st.text_input("Password", type="password", key="login_password")
     if st.button("Log In"):
         if not username or not password:
             st.error("Please enter both username and password.")
@@ -65,9 +68,9 @@ def login():
 
 def register():
     st.header("📝 Create your Companion Profile")
-    username = st.text_input("Choose a username")
-    password = st.text_input("Choose a password", type="password")
-    password_confirm = st.text_input("Confirm password", type="password")
+    username = st.text_input("Choose a username", key="reg_username")
+    password = st.text_input("Choose a password", type="password", key="reg_password")
+    password_confirm = st.text_input("Confirm password", type="password", key="reg_password_confirm")
     if st.button("Register"):
         if not username or not password or not password_confirm:
             st.error("Please fill all fields.")
@@ -78,8 +81,7 @@ def register():
         if username_exists(username):
             st.error("Username taken. Try another one or log in.")
             return
-        # Save new user: we add a dummy task with password hash here, 
-        # or create a dedicated 'Users' table for real apps
+        # Save new user to Airtable with a dummy task row that stores PasswordHash
         table.create({
             "User": username,
             "Task": "[User Created]",
@@ -96,24 +98,13 @@ def logout():
     st.session_state.logged_in = False
     st.experimental_rerun()
 
-if not st.session_state.logged_in:
-    st.sidebar.title("User Authentication")
-    option = st.sidebar.radio("Select option", ("Log In", "Register"))
-    st.session_state.mode = option.lower()
-    if st.session_state.mode == "login":
-        login()
-    else:
-        register()
-    st.stop()  # Prevent app loading until logged in
-
-# Main app functions (missions)
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
     seen = set()
     tasks = []
     for r in all_records:
         fields = r.get("fields", {})
-        # Filter for tasks of the logged in user, ignore user creation rows
+        # Skip user creation rows with special Task field
         if fields.get("Date") == date_str and fields.get("User", "").strip().lower() == user.lower() and fields.get("Task", "") != "[User Created]":
             task_text = fields.get("Task", "")
             if task_text.lower() not in seen:
@@ -139,7 +130,19 @@ def add_task(task_text, date_str, user):
 def delete_task(record_id):
     table.delete(record_id)
 
-### Main app UI ###
+# Authentication UI and mode selection
+if not st.session_state.logged_in:
+    st.sidebar.title("User Authentication")
+    option = st.sidebar.radio("Select option", ("Log In", "Register"), index=0)
+    st.session_state.mode = option.lower()
+
+    if st.session_state.mode == "login":
+        login()
+    else:
+        register()
+    st.stop()  # Don't run the rest of the app if not logged in
+
+# Main app UI after login
 st.sidebar.title(f"Hello, {st.session_state.user}!")
 if st.sidebar.button("Log Out"):
     logout()
@@ -155,8 +158,7 @@ st.markdown("""
         .delete-btn button {background: #fa2656;}
         .add-btn button {background: #ffe766; color: black;}
     </style>
-    """, unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
 
 st.title(f"🧑‍🚀 {st.session_state.user}'s Daily Mission Companion!")
 st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
