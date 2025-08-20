@@ -1,20 +1,31 @@
-from pyairtable import Table
 import streamlit as st
+from pyairtable import Table
 from datetime import datetime
+import hashlib
 import random
 
-# Airtable config from secrets
-AIRTABLE_BASE_ID = "appf3qCx67knSZq16"
+# Airtable config
+AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
 AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
 AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-# Helper functions for username management
+def hash_password(pw):
+    return hashlib.sha256(pw.encode()).hexdigest()
+
 def username_exists(username):
     all_records = table.all()
     usernames = {r.get("fields", {}).get("User", "").lower() for r in all_records}
     return username.lower() in usernames
+
+def get_user_password_hash(username):
+    all_records = table.all()
+    for r in all_records:
+        fields = r.get("fields", {})
+        if fields.get("User", "").lower() == username.lower():
+            return fields.get("PasswordHash", None)
+    return None
 
 def suggest_usernames(base_name):
     suggestions = []
@@ -23,47 +34,87 @@ def suggest_usernames(base_name):
         suggestions.append(f"{base_name}_{random.randint(10,99)}")
     return suggestions
 
-# User login / registration flow
+# Initialize session state
 if "user" not in st.session_state:
     st.session_state.user = ""
-if "user_available" not in st.session_state:
-    st.session_state.user_available = False
-if "user_to_confirm" not in st.session_state:
-    st.session_state.user_to_confirm = ""
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "mode" not in st.session_state:
+    st.session_state.mode = "login"  # or "register"
 
-current_user = st.session_state.user.strip()
+# Authentication UI
+def login():
+    st.header("🔐 Welcome back! Please log in")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Log In"):
+        if not username or not password:
+            st.error("Please enter both username and password.")
+            return
+        if not username_exists(username):
+            st.error("Username does not exist. Please register.")
+            return
+        pw_hash = get_user_password_hash(username)
+        if pw_hash != hash_password(password):
+            st.error("Incorrect password. Please try again.")
+            return
+        st.session_state.user = username
+        st.session_state.logged_in = True
+        st.success(f"Welcome back, {username}!")
+        st.experimental_rerun()
 
-if current_user == "":
-    st.header("🚀 Set up your Companion Profile")
-    new_username = st.text_input("Choose your unique username:", value="")
+def register():
+    st.header("📝 Create your Companion Profile")
+    username = st.text_input("Choose a username")
+    password = st.text_input("Choose a password", type="password")
+    password_confirm = st.text_input("Confirm password", type="password")
+    if st.button("Register"):
+        if not username or not password or not password_confirm:
+            st.error("Please fill all fields.")
+            return
+        if password != password_confirm:
+            st.error("Passwords do not match.")
+            return
+        if username_exists(username):
+            st.error("Username taken. Try another one or log in.")
+            return
+        # Save new user: we add a dummy task with password hash here, 
+        # or create a dedicated 'Users' table for real apps
+        table.create({
+            "User": username,
+            "Task": "[User Created]",
+            "Date": datetime.today().strftime("%Y-%m-%d"),
+            "Completed": True,
+            "PasswordHash": hash_password(password)
+        })
+        st.success("Registration successful! Please log in now.")
+        st.session_state.mode = "login"
+        st.experimental_rerun()
 
-    if st.button("Check Availability") and new_username.strip():
-        name = new_username.strip()
-        if username_exists(name):
-            st.session_state.user_available = False
-            st.error(f"Sorry, '{name}' is already taken. Try one of these:")
-            for sug in suggest_usernames(name):
-                st.write(f"- {sug}")
-        else:
-            st.session_state.user_available = True
-            st.session_state.user_to_confirm = name
-            st.success(f"'{name}' is available! 🎉 Please confirm below.")
+def logout():
+    st.session_state.user = ""
+    st.session_state.logged_in = False
+    st.experimental_rerun()
 
-    if st.session_state.user_available and st.session_state.user_to_confirm:
-        if st.button("Confirm username"):
-            st.session_state.user = st.session_state.user_to_confirm
-            st.session_state.user_to_confirm = ""
-            st.rerun()
+if not st.session_state.logged_in:
+    st.sidebar.title("User Authentication")
+    option = st.sidebar.radio("Select option", ("Log In", "Register"))
+    st.session_state.mode = option.lower()
+    if st.session_state.mode == "login":
+        login()
+    else:
+        register()
+    st.stop()  # Prevent app loading until logged in
 
-    st.stop()  # Wait until username confirmed
-
+# Main app functions (missions)
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
     seen = set()
     tasks = []
     for r in all_records:
         fields = r.get("fields", {})
-        if fields.get("Date") == date_str and fields.get("User", "").strip().lower() == user.lower():
+        # Filter for tasks of the logged in user, ignore user creation rows
+        if fields.get("Date") == date_str and fields.get("User", "").strip().lower() == user.lower() and fields.get("Task", "") != "[User Created]":
             task_text = fields.get("Task", "")
             if task_text.lower() not in seen:
                 seen.add(task_text.lower())
@@ -72,7 +123,6 @@ def get_tasks_for_date_and_user(date_str, user):
                     "task": task_text,
                     "completed": fields.get("Completed", False)
                 })
-    # Alphabetical order by task text
     return sorted(tasks, key=lambda x: x["task"].lower())
 
 def update_task_completion(record_id, completed):
@@ -89,9 +139,11 @@ def add_task(task_text, date_str, user):
 def delete_task(record_id):
     table.delete(record_id)
 
-# ---- THE ENGAGING INTERFACE ----
+### Main app UI ###
+st.sidebar.title(f"Hello, {st.session_state.user}!")
+if st.sidebar.button("Log Out"):
+    logout()
 
-# Sidebar date selector
 selected_date = st.sidebar.date_input("🎯 Pick your day!", datetime.today())
 selected_date_str = selected_date.strftime("%Y-%m-%d")
 st.sidebar.markdown(f"#### 📅 Missions for {selected_date_str}")
@@ -106,16 +158,14 @@ st.markdown("""
     """, unsafe_allow_html=True
 )
 
-st.title(f"🧑‍🚀 {current_user}'s Daily Mission Companion!")
-
+st.title(f"🧑‍🚀 {st.session_state.user}'s Daily Mission Companion!")
 st.markdown("#### Every day is a new adventure. Let's crush it together! 🚀")
 
-tasks = get_tasks_for_date_and_user(selected_date_str, current_user)
+tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
 
 if not tasks:
     st.info("No missions yet for this day. Ready to conquer something new? 🥷")
 
-# Display missions alphabetically with colorful icons and playful messages
 for task in tasks:
     completed = task.get("completed", False)
     label_text = task["task"]
@@ -124,11 +174,9 @@ for task in tasks:
     else:
         label = f"<span class='incomplete-label'>💡 Let's do: {label_text}</span>"
 
-    col1, col2 = st.columns([9,1])
+    col1, col2 = st.columns([9, 1])
     with col1:
-        new_completed = st.checkbox(
-            "", value=completed, key=f"{task['id']}_checkbox"
-        )
+        new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
         st.markdown(label, unsafe_allow_html=True)
         if new_completed != completed:
             update_task_completion(task["id"], new_completed)
@@ -138,16 +186,15 @@ for task in tasks:
         if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
             delete_task(task["id"])
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Add new mission input & creative call to action
 st.markdown("### ✨ New quest for the day:")
 new_task = st.text_input("What powerful mission should we tackle together today?")
 
 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
 if st.button("⚡ Add Mission"):
     if new_task.strip():
-        add_task(new_task.strip(), selected_date_str, current_user)
+        add_task(new_task.strip(), selected_date_str, st.session_state.user)
         st.success("Your new mission is ready for liftoff! 🚀")
         st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
