@@ -56,7 +56,7 @@ for task in tasks:
     new_completed = st.checkbox(label, value=completed, key=task["id"])
     if new_completed != completed:
         update_task_completion(task["id"], new_completed)
-        st.experimental_rerun()
+        st.rerun()
 
 # Input to add new task to selected date
 new_task = st.text_input("🌟 Add a new mission:")
