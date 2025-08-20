@@ -116,7 +116,7 @@ def logout():
     st.session_state.logged_in = False
     st.experimental_rerun()
 
-# Session state defaults
+# Session state initialization
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -124,18 +124,18 @@ if "logged_in" not in st.session_state:
 if "mode" not in st.session_state:
     st.session_state.mode = "login"
 
-# User selects login or register mode
+# User selects login or register mode on sidebar
 st.sidebar.title("User Authentication")
 mode_option = st.sidebar.radio("Select mode:", ["Log In", "Register"])
 st.session_state.mode = mode_option.lower()
 
-# Show login/register or main app depending on login state
+# Render auth or app UI depending on login status
 if not st.session_state.logged_in:
     if st.session_state.mode == "login":
         login()
-    else:
+    elif st.session_state.mode == "register":
         register()
-    st.stop()  # Stop here if not logged in, wait for login/registration
+    st.stop()  # Pause until authenticated
 else:
     st.sidebar.title(f"Hello, {st.session_state.user}!")
     if st.sidebar.button("Log Out"):
