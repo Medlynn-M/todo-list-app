@@ -21,7 +21,8 @@ def get_tasks_for_date(date_str):
                 "task": fields.get("Task", ""),
                 "completed": fields.get("Completed", False)
             })
-    return tasks
+    # Reverse order: most recently added tasks first
+    return tasks[::-1]
 
 def update_task_completion(record_id, completed):
     table.update(record_id, {"Completed": completed})
@@ -32,6 +33,9 @@ def add_task(task_text, date_str):
         "Date": date_str,
         "Completed": False
     })
+
+def delete_task(record_id):
+    table.delete(record_id)
 
 st.title("🚀 Boost Your Day!")
 
@@ -45,20 +49,26 @@ tasks = get_tasks_for_date(selected_date_str)
 if not tasks:
     st.write("No missions for this day. Add some below!")
 
-# Display tasks with persistent checkbox and color indicators
+# Show tasks in reverse order with delete option
 for task in tasks:
     completed = task.get("completed", False)
     label_text = task["task"]
-    # Show green check emoji for completed, red cross for incomplete
     label = f"✅ {label_text}" if completed else f"❌ {label_text}"
 
-    # Checkbox to toggle completion state
-    new_completed = st.checkbox(label, value=completed, key=task["id"])
-    if new_completed != completed:
-        update_task_completion(task["id"], new_completed)
-        st.rerun()
+    col1, col2 = st.columns([9,1])
+    with col1:
+        # Checkbox for completion status
+        new_completed = st.checkbox(label, value=completed, key=f"{task['id']}_checkbox")
+        if new_completed != completed:
+            update_task_completion(task["id"], new_completed)
+            st.rerun()
+    with col2:
+        # Delete button for each mission
+        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
+            delete_task(task["id"])
+            st.rerun()
 
-# Input to add new task to selected date
+# Add new mission
 new_task = st.text_input("🌟 Add a new mission:")
 if st.button("🔥 Add Mission"):
     if new_task.strip():
