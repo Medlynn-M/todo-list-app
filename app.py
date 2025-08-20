@@ -5,10 +5,9 @@ st.markdown("<h1 style='color: #FF8C00; text-align: center;'>🚀 Boost Your Day
 st.markdown("<h2 style='color: #FFD700;'>✨ What awesome thing will you do next?</h2>", unsafe_allow_html=True)
 
 if "tasks" not in st.session_state:
-    # Store tasks as list of dicts with 'task' and optional 'alarm'
     st.session_state["tasks"] = []
 
-# Input task and optional alarm time
+# Add new task with optional alarm
 new_task = st.text_input("🌟 Add an exciting mission:")
 new_alarm = st.time_input("⏰ Set alarm time (optional)", value=None)
 
@@ -20,30 +19,29 @@ if st.button("🔥 Add Mission"):
 
 st.markdown("## 📝 Today's Missions")
 
-# Display tasks with alarms and option to mark done
-to_remove = None
-for idx, entry in enumerate(st.session_state.tasks):
-    task_text = entry["task"]
-    alarm = entry.get("alarm")
-    alert = ""
+now_str = datetime.now().strftime("%H:%M")
 
-    # Check if alarm time is passed or now (simple alert)
-    if alarm:
-        now_str = datetime.now().strftime("%H:%M")
-        if now_str >= alarm:
-            alert = " ⏰ Alarm!"
+# Show each task, highlight if alarm is matched, and allow just one to be marked as done
+if st.session_state.tasks:
+    choices = []
+    display_texts = []
+    for i, entry in enumerate(st.session_state.tasks):
+        alarm = entry.get("alarm")
+        alert = ""
+        if alarm and now_str >= alarm:
+            alert = " ⏰ **ALARM!**"
+        label = entry["task"] + (f' (Alarm at {alarm})' if alarm else '') + alert
+        display_texts.append(label)
+        choices.append(str(i))
 
-    if st.radio(
-        f"{task_text}{alert}  (Alarm at {alarm})" if alarm else task_text,
-        options=[""],
-        key=f"task_radio_{idx}",
-    ):
-        to_remove = idx
+    selected = st.radio(
+        "Select a mission to mark as done:",
+        choices,
+        format_func=lambda x: display_texts[int(x)]
+    )
 
-if st.button("✅ Mark as Done!"):
-    if to_remove is not None:
-        accomplished = st.session_state.tasks.pop(to_remove)
-        st.info(f"Mission accomplished: {accomplished['task']}")
-
-if not st.session_state.tasks:
+    if st.button("✅ Mark as Done!"):
+        removed = st.session_state.tasks.pop(int(selected))
+        st.info(f"Mission accomplished: {removed['task']}")
+else:
     st.markdown("<div style='text-align:center; color:#00CED1;'>No missions left! You're on fire today! 🎉</div>", unsafe_allow_html=True)
