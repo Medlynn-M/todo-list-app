@@ -2,10 +2,12 @@ from pyairtable import Table
 import streamlit as st
 from datetime import datetime
 
-AIRTABLE_BASE_ID = "https://airtable.com/appf3qCx67knSZq16/api/docs"
-AIRTABLE_TABLE_NAME = "Tasks"
-AIRTABLE_TOKEN = "pat2bTPrIC5qNJtLx.d474703680c5b0464dc0171b402574fc5721f5ee1a831927e8a1e881511dbf89"
+# Load Airtable credentials from Streamlit secrets
+AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
+AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
+AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
+# Connect to Airtable table
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
 def get_tasks_for_today():
