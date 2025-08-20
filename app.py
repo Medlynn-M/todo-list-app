@@ -111,10 +111,7 @@ def signup_block():
             "PasswordHash": hash_password(password)
         })
         st.success("🎉 Congratulations, Commander! Your profile is locked and loaded. Return to the Launchpad to start your mission.")
-        # Clear inputs
-        st.session_state.reg_username = ""
-        st.session_state.reg_password = ""
-        st.session_state.reg_password_confirm = ""
+        # Do NOT directly set st.session_state.reg_username etc. here (avoids Streamlit error)
         st.session_state.show_register_form = False
         st.session_state.mode = "login"
         st.rerun()
@@ -134,20 +131,19 @@ if "mode" not in st.session_state:
 if "show_register_form" not in st.session_state:
     st.session_state.show_register_form = False
 
-# Sidebar choice for user navigation
+# Sidebar choice - always show login block first
 st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
-    # Always show login block first
     login_block()
 
-    # Button to toggle registration form below login
+    # Button toggling registration form visibility
     if not st.session_state.show_register_form:
         if st.button("New here? Enroll your call sign ✨"):
             st.session_state.show_register_form = True
             st.rerun()
 
-    # Show registration form toggle area
+    # Show registration form below button if toggled on
     if st.session_state.show_register_form:
         st.markdown("---")
         signup_block()
@@ -157,68 +153,67 @@ if not st.session_state.logged_in:
 
     st.stop()
 
-else:
-    # Logged in: main mission control UI
-    st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
-    if st.sidebar.button("Abort Mission: Log Out"):
-        logout()
+# Main logged in UI
+st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
+if st.sidebar.button("Abort Mission: Log Out"):
+    logout()
 
-    selected_date = st.sidebar.date_input("🎯 Select Mission Date", datetime.today())
-    selected_date_str = selected_date.strftime("%Y-%m-%d")
-    st.sidebar.markdown(f"#### Missions for {selected_date_str}")
+selected_date = st.sidebar.date_input("🎯 Select Mission Date", datetime.today())
+selected_date_str = selected_date.strftime("%Y-%m-%d")
+st.sidebar.markdown(f"#### Missions for {selected_date_str}")
 
-    st.markdown("""
-        <style>
-            .completed-label {color: #43ea54; font-weight: bold;}
-            .incomplete-label {color: #fa4372; font-weight: bold;}
-            .delete-btn button {background: #fa2656;}
-            .add-btn button {background: #ffe766; color: black;}
-        </style>
-        """, unsafe_allow_html=True)
+st.markdown("""
+    <style>
+        .completed-label {color: #43ea54; font-weight: bold;}
+        .incomplete-label {color: #fa4372; font-weight: bold;}
+        .delete-btn button {background: #fa2656;}
+        .add-btn button {background: #ffe766; color: black;}
+    </style>
+    """, unsafe_allow_html=True)
 
-    st.title(f"🧑‍🚀 Commander {st.session_state.user}'s Mission Control")
-    st.markdown("#### Every mission counts. Let's conquer today's challenges! 🚀")
+st.title(f"🧑‍🚀 Commander {st.session_state.user}'s Mission Control")
+st.markdown("#### Every mission counts. Let's conquer today's challenges! 🚀")
 
-    tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
+tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
 
-    if not tasks:
-        st.info("No missions logged for this date. Ready to add a new objective? 🛰️")
+if not tasks:
+    st.info("No missions logged for this date. Ready to add a new objective? 🛰️")
 
-    for task in tasks:
-        completed = task.get("completed", False)
-        label_text = task["task"]
-        if completed:
-            label = f"<span class='completed-label'>🌟 Completed: {label_text}</span>"
-        else:
-            label = f"<span class='incomplete-label'>💡 Pending: {label_text}</span>"
+for task in tasks:
+    completed = task.get("completed", False)
+    label_text = task["task"]
+    if completed:
+        label = f"<span class='completed-label'>🌟 Completed: {label_text}</span>"
+    else:
+        label = f"<span class='incomplete-label'>💡 Pending: {label_text}</span>"
 
-        col1, col2 = st.columns([9, 1])
-        with col1:
-            new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
-            st.markdown(label, unsafe_allow_html=True)
-            if new_completed != completed:
-                update_task_completion(task["id"], new_completed)
-                st.rerun()
-        with col2:
-            st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-            if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
-                delete_task(task["id"])
-                st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown("### 📝 Set a new mission:")
-    new_task = st.text_input("What objective shall we pursue today?")
-
-    st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-    if st.button("🚀 Add Mission"):
-        if new_task.strip():
-            add_task(new_task.strip(), selected_date_str, st.session_state.user)
-            st.success("Mission accepted! Onward, Commander!")
+    col1, col2 = st.columns([9, 1])
+    with col1:
+        new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
+        st.markdown(label, unsafe_allow_html=True)
+        if new_completed != completed:
+            update_task_completion(task["id"], new_completed)
             st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
+            delete_task(task["id"])
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("""
-    ---
-    **Tip:** Tick the checkbox to mark a mission complete, or use the bin icon to remove it.  
-    Stay sharp, Commander. Your legacy awaits! 🌟
-    """)
+st.markdown("### 📝 Set a new mission:")
+new_task = st.text_input("What objective shall we pursue today?")
+
+st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+if st.button("🚀 Add Mission"):
+    if new_task.strip():
+        add_task(new_task.strip(), selected_date_str, st.session_state.user)
+        st.success("Mission accepted! Onward, Commander!")
+        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+---
+**Tip:** Tick the checkbox to mark a mission complete, or use the bin icon to remove it.  
+Stay sharp, Commander. Your legacy awaits! 🌟
+""")
