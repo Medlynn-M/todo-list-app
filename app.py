@@ -1,6 +1,7 @@
 from pyairtable import Table
 import streamlit as st
 from datetime import datetime
+import random
 
 # Airtable config from secrets
 AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
@@ -9,15 +10,41 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-# Sidebar username input
-if "user" not in st.session_state or not st.session_state.user:
-    st.session_state.user = st.sidebar.text_input("👤 Enter your username", "")
+# Helper functions for username management
+def username_exists(username):
+    all_records = table.all()
+    usernames = {r.get("fields", {}).get("User", "").lower() for r in all_records}
+    return username.lower() in usernames
+
+def suggest_usernames(base_name):
+    suggestions = []
+    for i in range(1, 10):
+        suggestions.append(f"{base_name}{i}")
+        suggestions.append(f"{base_name}_{random.randint(10,99)}")
+    return suggestions
+
+# User login / registration flow
+if "user" not in st.session_state:
+    st.session_state.user = ""
 
 current_user = st.session_state.user.strip()
 
-if not current_user:
-    st.sidebar.warning("Please enter your username above to view and create missions.")
-    st.stop()
+if current_user == "":
+    st.header("🚀 Set up your Companion Profile")
+    new_username = st.text_input("Choose your unique username:")
+
+    if st.button("Check Availability") and new_username.strip():
+        name = new_username.strip()
+        if username_exists(name):
+            st.error(f"Sorry, '{name}' is already taken. Try one of these:")
+            for sug in suggest_usernames(name):
+                st.write(f"- {sug}")
+        else:
+            st.success(f"'{name}' is available! 🎉")
+            if st.button("Confirm username"):
+                st.session_state.user = name
+                st.experimental_rerun()
+    st.stop()  # Stop running further until user sets a valid name
 
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
