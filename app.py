@@ -5,8 +5,8 @@ import hashlib
 import re
 
 # Airtable configuration
-AIRTABLE_BASE_ID = st.secrets["airtable"]["base"]
-AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table"]
+AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
+AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
 AIRTABLE_API_KEY = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
