@@ -84,61 +84,65 @@ def suggest_usernames(base_name):
         suggestions.append(f"{base_name}_{random.randint(10,99)}")
     return suggestions
 
-# Login block
+# ---------------- LOGIN UI ----------------
 def login_block():
     st.header("👋 Welcome Back, Commander!")
-    username = st.text_input("Your Call Sign (Username)", key="login_username")
-    password = st.text_input("Secret Code (Password)", type="password", key="login_password")
-    login_clicked = st.button("Launch Mission Control")
+    username = st.text_input("🛰️ Enter Your Call Sign (Case-Sensitive Username)", key="login_username")
+    password = st.text_input("🔐 Enter Your Secret Code (Password)", type="password", key="login_password")
+    login_clicked = st.button("🚀 Launch Mission Control")
     if login_clicked:
         if not username or not password:
-            st.error("Please enter both your call sign and secret code.")
+            st.error("⚠️ Mission Incomplete! Enter both your Call Sign and Secret Code to proceed.")
             return False
         if not username_exists(username):
-            st.error("Stranger alert! Call sign not found. Ready to enroll?")
+            st.error("🛰️ Unknown Call Sign Detected! No Commander registered with that name.")
             return False
         pw_hash = get_user_password_hash(username)
         if pw_hash != hash_password(password):
-            st.error("Invalid secret code. Please try again.")
+            st.error("❌ Access Denied! Secret Code mismatch. Mission Control cannot authenticate this call sign.")
             return False
         st.session_state.user = username
         st.session_state.logged_in = True
-        st.success(f"Welcome aboard, Commander {username}!")
+        st.success(f"🌟 Access Granted! Welcome aboard, Commander {username}. Mission Control is now online!")
         st.rerun()
         return True
     return False
 
-# Signup block
+# ---------------- SIGNUP UI ----------------
 def signup_block():
     st.header("🛠️ Launch New Mission: Create Your Commander Profile")
 
     if st.session_state.get("registration_success", False):
-        st.success("🎉 Congratulations, Commander! Your profile is locked and loaded. Return to the Launchpad to start your mission.")
-        if st.button("Back to Login"):
+        st.success("🎉 Mission Success! Your Commander profile is now secured in Mission Control. Prepare for liftoff!")
+        if st.button("🔑 Return to Launchpad"):
             st.session_state.registration_success = False
             st.session_state.show_register_form = False
             st.session_state.mode = "login"
             st.rerun()
         return
 
-    username = st.text_input("Pick Your Call Sign (Username)", key="reg_username")
-    password = st.text_input("Choose a Secret Code (Password)", type="password", key="reg_password")
-    password_confirm = st.text_input("Confirm Secret Code", type="password", key="reg_password_confirm")
+    username = st.text_input("🌌 Choose Your Call Sign (Case-Sensitive Username)", key="reg_username")
+    password = st.text_input("🔐 Forge Your Secret Code (Password)", type="password", key="reg_password")
+    st.caption("🛡️ Secret Code must be mission-grade: Minimum 8 characters, containing at least one uppercase star, one lowercase planet, a number for coordinates, and a special symbol to unlock hyperspace portals.")
+    password_confirm = st.text_input("🔐 Confirm Your Secret Code", type="password", key="reg_password_confirm")
 
-    if st.button("Enroll Me!"):
+    if st.button("✨ Enlist Me, Mission Control!"):
         if not username or not password or not password_confirm:
-            st.error("All fields are mission critical. Fill them all.")
+            st.error("⚠️ Every input is mission critical, Commander. Complete all fields to proceed.")
             return
         if password != password_confirm:
-            st.error("Codes don't match. Recheck your secret code.")
+            st.error("⚠️ Secret Codes don't match! Resynchronize your access key.")
             return
         if username_exists(username):
-            st.error("Call sign already taken by another commander. Choose a different one.")
+            st.error("❌ Call Sign already claimed by another Commander. Choose a unique identifier.")
             return
-        # ✅ enforce strong password rule
         if not is_strong_password(password):
-            st.error("Secret code too weak! Must be at least 8 chars & include uppercase, lowercase, number, and symbol.")
+            st.error("⚠️ Secret Code too weak! Your access key must be battle-ready: "
+                     "at least 8 characters, include an UPPERCASE star, a lowercase planet, "
+                     "a number for coordinates, and a special symbol to unlock hyperspace. 🌌")
             return
+
+        # Save to Airtable
         table.create({
             "User": username,
             "Task": "[User Created]",
@@ -150,13 +154,13 @@ def signup_block():
         st.session_state.show_register_form = True
         st.rerun()
 
-# Logout
+# ---------------- LOGOUT ----------------
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
     st.rerun()
 
-# Initialize session state
+# ---------------- SESSION STATE INIT ----------------
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -168,14 +172,14 @@ if "show_register_form" not in st.session_state:
 if "registration_success" not in st.session_state:
     st.session_state.registration_success = False
 
-# Sidebar authentication
+# ---------------- SIDEBAR AUTH ----------------
 st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
     login_block()
 
     if not st.session_state.show_register_form and not st.session_state.registration_success:
-        if st.button("New here? Enroll your call sign ✨"):
+        if st.button("✨ New here? Enlist your Call Sign"):
             st.session_state.show_register_form = True
             st.rerun()
 
@@ -183,20 +187,20 @@ if not st.session_state.logged_in:
         st.markdown("---")
         signup_block()
         if not st.session_state.registration_success:
-            if st.button("Already a Commander? Return to Launchpad 👈"):
+            if st.button("🔙 Already a Commander? Return to Launchpad"):
                 st.session_state.show_register_form = False
                 st.rerun()
 
     st.stop()
 
-# After login
+# ---------------- MAIN APP ----------------
 st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
-if st.sidebar.button("Abort Mission: Log Out"):
+if st.sidebar.button("⏹️ Abort Mission: Log Out"):
     logout()
 
 selected_date = st.sidebar.date_input("🎯 Select Mission Date", datetime.today())
 selected_date_str = selected_date.strftime("%Y-%m-%d")
-st.sidebar.markdown(f"#### Missions for {selected_date_str}")
+st.sidebar.markdown(f"#### 📅 Missions for {selected_date_str}")
 
 st.markdown("""
     <style>
@@ -208,12 +212,12 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.title(f"🧑‍🚀 Commander {st.session_state.user}'s Mission Control")
-st.markdown("#### Every mission counts. Let's conquer today's challenges! 🚀")
+st.markdown("#### Every mission counts. Let’s conquer today’s challenges! 🚀")
 
 tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
 
 if not tasks:
-    st.info("No missions logged for this date. Ready to add a new objective? 🛰️")
+    st.info("🛰️ No missions logged for this date. Ready to add a new objective for your legacy, Commander?")
 
 for task in tasks:
     completed = task.get("completed", False)
@@ -232,24 +236,24 @@ for task in tasks:
             st.rerun()
     with col2:
         st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
-        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
+        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission objective"):
             delete_task(task["id"])
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("### 📝 Set a new mission:")
-new_task = st.text_input("What objective shall we pursue today?")
+new_task = st.text_input("What objective shall we pursue today, Commander?")
 
 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-if st.button("🚀 Add Mission"):
+if st.button("🚀 Accept Mission"):
     if new_task.strip():
         add_task(new_task.strip(), selected_date_str, st.session_state.user)
-        st.success("Mission accepted! Onward, Commander!")
+        st.success("✅ Mission accepted! Onward, Commander!")
         st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("""
 ---
-**Tip:** Tick the checkbox to mark a mission complete, or use the bin icon to remove it.  
-Stay sharp, Commander. Your legacy awaits! 🌟
+**Tip:** Use ✅ to mark a mission complete, or 🗑️ to remove it.  
+Stay sharp, Commander. The galaxy is counting on you! 🌌
 """)
