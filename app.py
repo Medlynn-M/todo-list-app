@@ -107,8 +107,45 @@ def login_block():
 
     password = st.text_input("🔐 Enter Your Secret Code (Password)", type="password", key="login_password")
 
-    login_clicked = st.button("🚀 Launch Mission Control")
-    if login_clicked:
+    # Forgotten password text aligned right below password input
+    forgot_pwd_clicked = False
+    forgot_pwd_placeholder = st.empty()
+    forgot_pwd_placeholder.markdown("""
+        <div style="display:flex; justify-content:flex-end; margin-top:-15px; margin-bottom:10px;">
+            <a href="#" style="color:#ff6363; font-size:0.95em; text-decoration:underline; cursor:pointer;" id="forgot-link">❓ Forgot Secret Code?</a>
+        </div>
+        <script>
+        const link = window.parent.document.getElementById('forgot-link');
+        if(link) {
+            link.onclick = () =>  {
+                window.parent.postMessage({event: 'forgot_clicked'}, '*');
+                return false;
+            }
+        }
+        </script>
+    """, unsafe_allow_html=True)
+
+    # Streamlit does not support JS interaction fully,
+    # so fallback to treat the actual forgot button as well
+    if st.button("❓ Forgot Secret Code?", key="forgottext_small_button", help="Recover your Secret Code", use_container_width=False):
+        st.session_state.forgot_mode = True
+        st.experimental_rerun()
+
+    st.markdown(
+        """
+        <style>
+        /* Smaller, more compact buttons globally */
+        .stButton button {
+            padding: 0.3em 0.75em !important;
+            font-size: 0.90em !important;
+            border-radius: 6px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if st.button("🚀 Launch Mission Control", key="launchmc_small"):
         if not username or not password:
             st.error("⚠️ Mission Incomplete! Enter both your Call Sign and Secret Code to proceed.")
             return False
@@ -142,7 +179,7 @@ def signup_block():
 
     if st.session_state.get("registration_success", False):
         st.success("🎉 Mission Success! Your Commander profile is now secured in Mission Control. Prepare for liftoff!")
-        if st.button("🔑 Return to Launchpad"):
+        if st.button("🔑 Return to Launchpad", key="return_launchpad_small"):
             st.session_state.registration_success = False
             st.session_state.show_register_form = False
             st.session_state.mode = "login"
@@ -174,7 +211,7 @@ def signup_block():
         unsafe_allow_html=True
     )
 
-    if st.button("✨ Enlist Me, Mission Control!"):
+    if st.button("✨ Enlist Me, Mission Control!", key="enlist_small"):
         if not username or not password or not password_confirm or not security_ans:
             st.error("⚠️ Every input is mission critical, Commander. Complete all fields to proceed.")
             return
@@ -232,7 +269,7 @@ def forgot_password_block():
                 st.session_state.reset_username = username
                 st.session_state.user_record = user_record
                 st.session_state.security_verified = False
-                st.rerun()
+                st.experimental_rerun()
 
     if st.session_state.reset_username and not st.session_state.security_verified:
         sec_q = st.session_state.user_record['fields']["SecurityQuestion"]
@@ -247,7 +284,7 @@ def forgot_password_block():
                 st.error("❌ Incorrect answer! Unable to reset Secret Code.")
             else:
                 st.session_state.security_verified = True
-                st.rerun()
+                st.experimental_rerun()
 
     if st.session_state.security_verified:
         new_pw = st.text_input("🔐 Enter New Secret Code", type="password", key="new_pw")
@@ -269,7 +306,7 @@ def forgot_password_block():
                 if st.button("🚀 Back to Launchpad"):
                     st.session_state.mode = "login"
                     st.session_state.forgot_mode = False
-                    st.rerun()
+                    st.experimental_rerun()
             else:
                 st.error("⚠️ Error: Could not reset password. Contact Mission Control.")
 
@@ -319,10 +356,10 @@ if not st.session_state.logged_in:
         login_block()
 
         if not st.session_state.show_register_form and not st.session_state.registration_success:
-            if st.button("❓ Forgot Secret Code?"):
+            if st.button("❓ Forgot Secret Code?", key="forgot_small_button"):
                 st.session_state.forgot_mode = True
                 st.rerun()
-            if st.button("✨ New here? Enlist your Call Sign"):
+            if st.button("✨ New here? Enlist your Call Sign", key="enlist_small_button"):
                 st.session_state.show_register_form = True
                 st.rerun()
 
@@ -330,7 +367,7 @@ if not st.session_state.logged_in:
             st.markdown("---")
             signup_block()
             if not st.session_state.registration_success:
-                if st.button("🔙 Already a Commander? Return to Launchpad"):
+                if st.button("🔙 Already a Commander? Return to Launchpad", key="return_launchpad_small"):
                     st.session_state.show_register_form = False
                     st.rerun()
 
@@ -340,7 +377,7 @@ if not st.session_state.logged_in:
 # 🌠 Main Mission Control
 # -----------------------------------------------------
 st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
-if st.sidebar.button("⏹️ Abort Mission: Log Out"):
+if st.sidebar.button("⏹️ Abort Mission: Log Out", key="logout_small_button"):
     logout()
 
 selected_date = st.sidebar.date_input("🎯 Select Mission Date", datetime.today())
@@ -353,6 +390,12 @@ st.markdown("""
         .incomplete-label {color: #fa4372; font-weight: bold;}
         .delete-btn button {background: #fa2656;}
         .add-btn button {background: #ffe766; color: black;}
+        /* Make all buttons smaller across the whole app */
+        .stButton button {
+            padding: 0.3em 0.75em !important;
+            font-size: 0.90em !important;
+            border-radius: 6px;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -390,7 +433,7 @@ st.markdown("### 📝 Set a new mission:")
 new_task = st.text_input("What objective shall we pursue today, Commander?")
 
 st.markdown('<div class="add-btn">', unsafe_allow_html=True)
-if st.button("🚀 Accept Mission"):
+if st.button("🚀 Accept Mission", key="accept_mission"):
     if new_task.strip():
         add_task(new_task.strip(), selected_date_str, st.session_state.user)
         st.success("✅ Mission accepted! Onward, Commander!")
