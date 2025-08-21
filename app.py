@@ -13,22 +13,24 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
 # -----------------------------------------------------
-# 🔒 Password utilities
+# 🔒 Utility functions
 # -----------------------------------------------------
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
+def hash_answer(ans):
+    return hashlib.sha256(ans.strip().lower().encode()).hexdigest()
+
 def is_strong_password(password: str) -> bool:
-    """Check if password meets complexity requirements"""
     if len(password) < 8:
         return False
-    if not re.search(r"[A-Z]", password):  # Uppercase
+    if not re.search(r"[A-Z]", password):
         return False
-    if not re.search(r"[a-z]", password):  # Lowercase
+    if not re.search(r"[a-z]", password):
         return False
-    if not re.search(r"[0-9]", password):  # Digit
+    if not re.search(r"[0-9]", password):
         return False
-    if not re.search(r"[^A-Za-z0-9]", password):  # Special char
+    if not re.search(r"[^A-Za-z0-9]", password):
         return False
     return True
 
@@ -36,7 +38,6 @@ def is_strong_password(password: str) -> bool:
 # 👨‍🚀 User account utilities
 # -----------------------------------------------------
 def username_exists(username):
-    """Check if an exact case-sensitive username exists"""
     all_records = table.all()
     usernames = {r.get("fields", {}).get("User", "") for r in all_records}
     return username in usernames
@@ -48,6 +49,15 @@ def get_user_password_hash(username):
         if fields.get("User", "") == username:
             return fields.get("PasswordHash", None)
     return None
+
+def reset_user_password(username, new_password):
+    all_records = table.all()
+    for r in all_records:
+        fields = r.get("fields", {})
+        if fields.get("User", "") == username:
+            table.update(r["id"], {"PasswordHash": hash_password(new_password)})
+            return True
+    return False
 
 # -----------------------------------------------------
 # 📋 Task utilities
@@ -94,7 +104,6 @@ def login_block():
         key="login_username",
         help="🛸 Case-Sensitive: 'StarCaptain' and 'starcaptain' are different Commanders. Choose wisely."
     )
-    st.caption("💡 Call Signs are **CASE-SENSITIVE!** Every character matters in Mission Control (Apollo ≠ apollo).")
 
     password = st.text_input("🔐 Enter Your Secret Code (Password)", type="password", key="login_password")
 
@@ -120,6 +129,14 @@ def login_block():
 # -----------------------------------------------------
 # 🛠️ Signup UI
 # -----------------------------------------------------
+SECURITY_QUESTIONS = [
+    "What is your favorite spacecraft?",
+    "What planet would you visit first?",
+    "What is your childhood nickname?",
+    "Who is your all-time hero?",
+    "Custom (type your own!)"
+]
+
 def signup_block():
     st.header("🛠️ Launch New Mission: Create Your Commander Profile")
 
@@ -137,15 +154,28 @@ def signup_block():
         key="reg_username",
         help="🛸 Case-Sensitive: 'StarCaptain' and 'starcaptain' are different Commanders. Choose wisely."
     )
-    st.caption("💡 Your Call Sign is CASE-SENSITIVE: 'Apollo' ≠ 'apollo'. Every letter locks in your unique identity!")
 
     password = st.text_input("🔐 Forge Your Secret Code (Password)", type="password", key="reg_password")
     st.caption("🛡️ Secret Code must be mission-grade: ≥8 chars, with an UPPERCASE star, a lowercase planet, a number for coordinates, and a special symbol to unlock hyperspace portals.")
 
     password_confirm = st.text_input("🔐 Confirm Your Secret Code", type="password", key="reg_password_confirm")
 
+    security_q = st.selectbox("🛡️ Choose a Security Question for Emergencies", SECURITY_QUESTIONS)
+    if security_q == "Custom (type your own!)":
+        security_q = st.text_input("📝 Enter Your Custom Security Question")
+
+    security_ans = st.text_input("🔑 Secret Answer (case-insensitive, for password reset)", type="password")
+
+    st.markdown(
+        "<span style='color: orange; font-weight: bold;'>"
+        "⚠️ Secure Your Access: This is your ONLY lifeline to reset your Secret Code if forgotten. "
+        "Record your Security Question and Answer somewhere safe! "
+        "If lost, Mission Control cannot recover your access.</span>",
+        unsafe_allow_html=True
+    )
+
     if st.button("✨ Enlist Me, Mission Control!"):
-        if not username or not password or not password_confirm:
+        if not username or not password or not password_confirm or not security_ans:
             st.error("⚠️ Every input is mission critical, Commander. Complete all fields to proceed.")
             return
         if password != password_confirm:
@@ -165,11 +195,70 @@ def signup_block():
             "Task": "[User Created]",
             "Date": datetime.today().strftime("%Y-%m-%d"),
             "Completed": True,
-            "PasswordHash": hash_password(password)
+            "PasswordHash": hash_password(password),
+            "SecurityQuestion": security_q,
+            "SecurityAnswerHash": hash_answer(security_ans)
         })
         st.session_state.registration_success = True
         st.session_state.show_register_form = True
         st.rerun()
+
+# -----------------------------------------------------
+# 🔑 Forgot Password / Reset UI
+# -----------------------------------------------------
+def forgot_password_block():
+    st.header("🔑 Reset Your Secret Code")
+    username = st.text_input("🌌 Enter Your Call Sign", key="reset_username")
+    verify_clicked = st.button("📡 Verify Commander Identity")
+
+    if verify_clicked:
+        if not username:
+            st.error("⚠️ Enter your Call Sign to proceed.")
+            return
+        if not username_exists(username):
+            st.error("🛰️ Unknown Call Sign! No Commander registered with that identity.")
+            return
+        all_records = table.all()
+        user_record = next((r for r in all_records if r.get("fields", {}).get("User", "") == username), None)
+        if not user_record or "SecurityQuestion" not in user_record.get("fields", {}):
+            st.error("⚠️ No security question set for this account.")
+            return
+        sec_q = user_record["fields"]["SecurityQuestion"]
+        sec_ans_hash = user_record["fields"].get("SecurityAnswerHash", "")
+
+        ans = st.text_input(f"🛡️ Answer your Security Question:\n*{sec_q}*", type="password", key="sec_answer")
+        verify_answer_clicked = st.button("🔓 Verify Security Answer")
+
+        if verify_answer_clicked:
+            input_ans = ans if ans else ""
+            if hash_answer(input_ans) != sec_ans_hash:
+                st.error("❌ Incorrect answer! Unable to reset Secret Code.")
+                return
+            st.success("✅ Security clearance granted! You may now set a new Secret Code.")
+
+            new_pw = st.text_input("🔐 Enter New Secret Code", type="password", key="new_pw")
+            confirm_pw = st.text_input("🔐 Confirm New Secret Code", type="password", key="confirm_pw")
+            st.caption("🛡️ Must be mission-grade: ≥8 chars, uppercase, lowercase, numeral, symbol.")
+
+            reset_clicked = st.button("✅ Reset Secret Code")
+            if reset_clicked:
+                if not new_pw or not confirm_pw:
+                    st.error("⚠️ All fields required, Commander!")
+                    return
+                if new_pw != confirm_pw:
+                    st.error("❌ Codes don’t match! Check your entries.")
+                    return
+                if not is_strong_password(new_pw):
+                    st.error("⚠️ Secret Code too weak! Must be ≥8 chars, include uppercase, lowercase, number, and symbol.")
+                    return
+                if reset_user_password(username, new_pw):
+                    st.success("🎉 Secret Code reset successful! Back to Launchpad to login.")
+                    if st.button("🚀 Back to Launchpad"):
+                        st.session_state.mode = "login"
+                        st.session_state.forgot_mode = False
+                        st.rerun()
+                else:
+                    st.error("⚠️ Error: Could not reset password. Contact Mission Control.")
 
 # -----------------------------------------------------
 # 🔓 Logout
@@ -192,6 +281,8 @@ if "show_register_form" not in st.session_state:
     st.session_state.show_register_form = False
 if "registration_success" not in st.session_state:
     st.session_state.registration_success = False
+if "forgot_mode" not in st.session_state:
+    st.session_state.forgot_mode = False
 
 # -----------------------------------------------------
 # 🛸 Auth Sidebar
@@ -199,22 +290,33 @@ if "registration_success" not in st.session_state:
 st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
-    login_block()
-
-    if not st.session_state.show_register_form and not st.session_state.registration_success:
-        if st.button("✨ New here? Enlist your Call Sign"):
-            st.session_state.show_register_form = True
+    if st.session_state.forgot_mode:
+        forgot_password_block()
+        if st.button("🔙 Back to Login"):
+            st.session_state.forgot_mode = False
             st.rerun()
+        st.stop()
+    else:
+        login_block()
 
-    if st.session_state.show_register_form:
-        st.markdown("---")
-        signup_block()
-        if not st.session_state.registration_success:
-            if st.button("🔙 Already a Commander? Return to Launchpad"):
-                st.session_state.show_register_form = False
+        if not st.session_state.show_register_form and not st.session_state.registration_success:
+            if st.button("✨ New here? Enlist your Call Sign"):
+                st.session_state.show_register_form = True
                 st.rerun()
 
-    st.stop()
+        if st.session_state.show_register_form:
+            st.markdown("---")
+            signup_block()
+            if not st.session_state.registration_success:
+                if st.button("🔙 Already a Commander? Return to Launchpad"):
+                    st.session_state.show_register_form = False
+                    st.rerun()
+
+        if st.button("❓ Forgot Secret Code?"):
+            st.session_state.forgot_mode = True
+            st.rerun()
+
+        st.stop()
 
 # -----------------------------------------------------
 # 🌠 Main Mission Control
