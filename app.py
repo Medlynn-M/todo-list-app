@@ -5,8 +5,8 @@ import hashlib
 import re
 
 # Airtable configuration
-AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
-AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
+AIRTABLE_BASE_ID = st.secrets["airtable"]["base"]
+AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table"]
 AIRTABLE_API_KEY = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
@@ -20,10 +20,10 @@ def hash_answer(answer):
 def is_strong_password(password):
     return (
         len(password) >= 8
-        and re.search(r"[A-Z]", password)
-        and re.search(r"[a-z]", password)
-        and re.search(r"\d", password)
-        and re.search(r"\W", password)
+        and re.search(r'[A-Z]', password)
+        and re.search(r'[a-z]', password)
+        and re.search(r'\d', password)
+        and re.search(r'\W', password)
     )
 
 def username_exists(username):
@@ -50,21 +50,21 @@ def get_tasks(user, date_str):
     tasks = []
     seen = set()
     for record in records:
-        fields = record['fields']
-        if fields.get('User') == user and fields.get('Date') == date_str and fields.get('Task') != "[User Created]":
-            task = fields.get('Task')
+        f = record['fields']
+        if f.get('User') == user and f.get('Date') == date_str and f.get('Task') != "[User Created]":
+            task = f.get('Task')
             if task and task.lower() not in seen:
                 seen.add(task.lower())
                 tasks.append({
                     'id': record['id'],
                     'task': task,
-                    'completed': fields.get('Completed', False),
-                    'time_slot': fields.get('Time', ''),
+                    'completed': f.get('Completed', False),
+                    'time_slot': f.get('Time', ''),
                 })
     return sorted(tasks, key=lambda x: (x['time_slot'], x['task']))
 
-def update_task(record_id, completed):
-    table.update(record_id, {"Completed": completed})
+def update_task(id, completed):
+    table.update(id, {"Completed": completed})
 
 def add_task(text, date_str, time_str, user):
     table.create({
@@ -75,27 +75,27 @@ def add_task(text, date_str, time_str, user):
         "Completed": False,
     })
 
-def delete_task(record_id):
-    table.delete(record_id)
+def delete_task(id):
+    table.delete(id)
 
 def login_ui():
-    st.header("🚀 Login")
+    st.header("Login")
     username = st.text_input("Call Sign", key="login_username")
-    password = st.text_input("Secret Code", key="login_password", type="password")
+    password = st.text_input("Password", key="login_password", type="password")
 
     if st.button("Launch", key="login_launch"):
         if not username or not password:
-            st.error("Enter Call Sign and Code")
+            st.error("Enter Call Sign and Password")
             return
         if not username_exists(username):
             st.error("Call Sign not found")
             return
         if get_user_hash(username) != hash_password(password):
-            st.error("Incorrect Code")
+            st.error("Incorrect Password")
             return
         st.session_state['user'] = username
         st.session_state['logged_in'] = True
-        st.experimental_rerun()
+        st.rerun()
 
     col1, col2 = st.columns([3, 1])
     with col2:
@@ -107,29 +107,28 @@ def login_ui():
             box-shadow:none!important;
             color:#209cee!important;
             text-decoration:underline!important;
-            font-size:0.85rem!important;
+            font-size:0.85!important;
             padding:0!important;
             min-width:0!important;
-            height:28px!important;
-            margin:-12px 0 8px 0;
+            height:28!important;
+            margin:-12 0 8 0;
             float:right;
             cursor:pointer;
         }
         div[data-testid="column"]:nth-child(2) > button:first-of-type:hover {
-            color:#1479cc!important;
+            color:#147cc!important;
         }
         </style>
         """, unsafe_allow_html=True)
-        if st.button("Forgot Code?", key="login_forgot"):
+        if st.button("Forgot Password?", key="forgot_password_btn"):
             st.session_state['forgot_mode'] = True
-            st.experimental_rerun()
+            st.rerun()
 
 SECURITY_QUESTIONS = [
-    "Which starship did you command?",
-    "Favorite planet",
-    "Childhood nickname",
-    "Who inspires you",
-    "Add your own",
+    "Your first pet's name?",
+    "Mother's maiden name?",
+    "Favorite color?",
+    "Make your own",
 ]
 
 def signup_ui():
@@ -139,142 +138,127 @@ def signup_ui():
         if st.button("Back to Login", key="signup_back"):
             st.session_state['registration_success'] = False
             st.session_state['show_register'] = False
-            st.experimental_rerun()
+            st.rerun()
         return
-
     username = st.text_input("Call Sign", key="signup_username")
     password = st.text_input("Password", key="signup_password", type="password")
-    st.markdown("<span style='color:#30A8B8;'>Password requires 8+ chars, uppercase, lowercase, digit & symbol</span>", unsafe_allow_html=True)
+    st.markdown('<span style="color:blue;">Password must be at least 8 characters and include uppercase, lowercase, numbers, and symbols</span>', unsafe_allow_html=True)
     confirm_password = st.text_input("Confirm Password", key="signup_confirm", type="password")
-    question = st.selectbox("Security question", options=SECURITY_QUESTIONS, key="signup_question")
-    if question == "Add your own":
-        question = st.text_input("Custom question", key="signup_custom_question")
-    answer = st.text_input("Security answer", key="signup_answer", type="password")
-    st.markdown("<span style='color:#E2681E;'>Save your question and answer! These are required for recovery.</span>", unsafe_allow_html=True)
-    
+    question = st.selectbox("Choose Security Question", options=SECURITY_QUESTIONS, key="signup_question")
+    if question == "Make your own":
+        question = st.text_input("Custom Security Question", key="signup_custom_question")
+    answer = st.text_input("Answer", key="signup_answer", type="password")
+    st.markdown('<span style="color:red;">Save your question and answer for future recovery</span>', unsafe_allow_html=True)
     if st.button("Sign Up", key="signup_submit"):
         if not username or not password or not confirm_password or not answer:
-            st.error("All fields required")
+            st.error("All fields are required")
             return
         if password != confirm_password:
             st.error("Passwords do not match")
             return
+        if not is_strong_password(password):
+            st.error("Password is too weak")
+            return
         if username_exists(username):
             st.error("Call Sign already taken")
-            return
-        if not is_strong_password(password):
-            st.error("Password too weak")
             return
         table.create({
             "User": username,
             "PasswordHash": hash_password(password),
             "SecurityQuestion": question,
             "SecurityAnswerHash": hash_answer(answer),
-            "Date": datetime.today().strftime("%Y-%m-%d"),
+            "Date": datetime.today().strftime('%Y-%m-%d'),
             "Task": "[User Created]",
             "Completed": True,
         })
         st.session_state['registration_success'] = True
         st.session_state['show_register'] = True
-        st.experimental_rerun()
+        st.rerun()
 
 def forgot_password_ui():
-    st.header("Commander Code Recovery")
+    st.header("Password Recovery")
     if 'forgot_stage' not in st.session_state or st.session_state['forgot_stage'] is None:
         st.session_state['forgot_stage'] = 'username'
-
-    if st.session_state['forgot_stage'] == 'username':
-        username_input = st.text_input("Commander Sign", key="forgot_username")
-        if st.button("Verify", key="forgot_verify"):
-            if not username_input:
-                st.error("Please enter your Commander Sign")
-            elif not username_exists(username_input):
-                st.error("Commander Sign not found")
+    if st.session_state['forgot_stage']=='username':
+        uname = st.text_input("Enter your Call Sign", key='recover_username')
+        if st.button("Verify", key='recover_verify'):
+            if not uname:
+                st.error("Please enter your Call Sign")
+            elif not username_exists(uname):
+                st.error("Call Sign not found")
             else:
-                record = next(
-                    (r for r in table.all() 
-                        if r['fields'].get('User') == username_input 
-                        and r['fields'].get('Task') == '[User Created]'
-                        and r['fields'].get('SecurityQuestion')),
-                    None)
+                record = next((r for r in table.all() if r['fields'].get('User')==uname and r['fields'].get('Task')=='[User Created]' and r['fields'].get('SecurityQuestion')), None)
                 if not record:
-                    st.error("Security question missing for this account. Please contact support.")
+                    st.error("No security question set for this account.")
                 else:
-                    st.session_state['reset_record'] = record
-                    st.session_state['username_for_reset'] = username_input
+                    st.session_state['recover_record'] = record
+                    st.session_state['recover_username'] = uname
                     st.session_state['forgot_stage'] = 'security'
-                    st.experimental_rerun()
-
-    elif st.session_state['forgot_stage'] == 'security':
-        record = st.session_state['reset_record']
+                    st.rerun()
+    if st.session_state['forgot_stage']=='security':
+        record = st.session_state['recover_record']
         question = record['fields']['SecurityQuestion']
-        expected = record['fields']['SecurityAnswerHash']
-        answer_input = st.text_input(f"Security question: {question}", key="forgot_answer", type="password")
-        if st.button("Submit", key="forgot_submit"):
-            if not answer_input:
-                st.error("Please provide an answer")
-            elif hash_answer(answer_input) != expected:
+        expected_answer_hash = record['fields']['SecurityAnswerHash']
+        ans = st.text_input(f"Security Question: {question}", key='recover_answer', type='password')
+        if st.button("Submit", key='recover_submit'):
+            if not ans:
+                st.error("Please provide answer")
+            elif hash_answer(ans)!=expected_answer_hash:
                 st.error("Incorrect answer")
             else:
                 st.session_state['forgot_stage'] = 'reset'
-                st.experimental_rerun()
-        if st.button("Back", key="forgot_back_to_username"):
+                st.rerun()
+        if st.button("Back", key='recover_back_to_username'):
             st.session_state['forgot_stage'] = 'username'
-            st.experimental_rerun()
-
-    elif st.session_state['forgot_stage'] == 'reset':
-        new_password = st.text_input("New Password", key="forgot_new_password", type="password")
-        confirm_password = st.text_input("Confirm Password", key="forgot_confirm_password", type="password")
-        st.caption("Password must be at least 8 characters with uppercase, lowercase, digit and symbol.")
-        if st.button("Reset", key="forgot_reset"):
+            st.rerun()
+    if st.session_state['forgot_stage']=='reset':
+        new_password = st.text_input("New Password", key='recover_new_password', type='password')
+        confirm_password = st.text_input("Confirm Password", key='recover_confirm_password', type='password')
+        st.caption("Password must be at least 8 characters including uppercase, lowercase, digit and symbol")
+        if st.button("Reset", key='recover_reset'):
             if not new_password or not confirm_password:
-                st.error("Please fill all fields")
-            elif new_password != confirm_password:
+                st.error("All fields are required")
+            elif new_password!=confirm_password:
                 st.error("Passwords do not match")
             elif not is_strong_password(new_password):
-                st.error("Password too weak")
+                st.error("Password is too weak")
             else:
-                username = st.session_state['username_for_reset']
-                if reset_user_password(username, new_password):
-                    st.success("Password reset successful! Please log in.")
-                    for k in ['forgot_stage','reset_record','username_for_reset']:
-                        if k in st.session_state:
-                            del st.session_state[k]
+                if reset_user_password(st.session_state['recover_username'], new_password):
+                    st.success("Password reset successful! Please login")
+                    for key in ['forgot_stage','recover_record','recover_username']:
+                        if key in st.session_state:
+                            del st.session_state[key]
                     st.session_state['forgot_mode'] = False
-                    st.experimental_rerun()
-        if st.button("Back", key="forgot_back_to_security"):
+                    st.rerun()
+        if st.button("Back", key='recover_back_to_security'):
             st.session_state['forgot_stage'] = 'security'
-            st.experimental_rerun()
-
+            st.rerun()
     st.markdown("---")
-    if st.button("Back to Login", key="forgot_back_to_login"):
+    if st.button("Back to Login", key='recover_back_to_login'):
         st.session_state['forgot_mode'] = False
-        for k in ['forgot_stage','reset_record','username_for_reset']:
-            if k in st.session_state:
-                del st.session_state[k]
-        st.experimental_rerun()
-
+        for key in ['forgot_stage','recover_record','recover_username']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.rerun()
 
 def logout():
     st.session_state['user'] = ''
     st.session_state['logged_in'] = False
-    st.experimental_rerun()
+    st.rerun()
 
-
-for k,v in {
-    'user':'',
-    'logged_in':False,
-    'mode':'login',
-    'show_register':False,
-    'registration_success':False,
-    'forgot_mode':False,
-    'forgot_stage':None,
-    'reset_record':None,
-    'username_for_reset':None,
+for key, default in {
+    'user': '',
+    'logged_in': False,
+    'mode': 'login',
+    'show_register': False,
+    'registration_success': False,
+    'forgot_mode': False,
+    'forgot_stage': None,
+    'recover_record': None,
+    'recover_username': None,
 }.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
-
+    if key not in st.session_state:
+        st.session_state[key] = default
 
 st.sidebar.title("Mission Control")
 
@@ -285,18 +269,18 @@ if not st.session_state['logged_in']:
     else:
         login_ui()
         if not st.session_state['show_register'] and not st.session_state['registration_success']:
-            if st.button("Sign Up", key="btn_signup"):
+            if st.button("Sign Up", key='signup_show'):
                 st.session_state['show_register'] = True
-                st.experimental_rerun()
+                st.rerun()
         if st.session_state['show_register']:
             signup_ui()
-            if st.button("Back to Login", key="btn_back_login"):
+            if st.button("Back to Login", key='signup_back'):
                 st.session_state['show_register'] = False
-                st.experimental_rerun()
+                st.rerun()
         st.stop()
 
 st.sidebar.title(f"Commander {st.session_state['user']}")
-if st.sidebar.button("Abort", key="btn_abort"):
+if st.sidebar.button("Abort Mission", key='logout'):
     logout()
 
 selected_date = st.sidebar.date_input("Mission Date", datetime.today())
@@ -304,54 +288,55 @@ date_str = selected_date.strftime('%Y-%m-%d')
 
 st.markdown("""
 <style>
-.stButton > button {
-    padding: 0.3rem 0.6rem !important;
-    font-size: 1.0rem !important;
-    border-radius: 6px !important;
+.stButton button {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 6px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.title(f"Commander {st.session_state['user']}'s Mission Control")
+st.title(f"Commander {st.session_state['user']}'s Control")
 
 tasks = get_tasks(st.session_state['user'], date_str)
 if not tasks:
-    st.info("No missions logged for today.")
+    st.info("No missions recorded")
 
 for idx, task in enumerate(tasks):
     cols = st.columns([10,1])
     with cols[0]:
         label = f"{'✅' if task['completed'] else '⬜'} {task['task']} {task.get('time_slot','')}"
-        checked = st.checkbox(label, key=f"task_checkbox_{task['id']}", value=task['completed'])
+        checked = st.checkbox(label, key=f'task_{task["id"]}', value=task['completed'])
         if checked != task['completed']:
             update_task(task['id'], checked)
-            st.experimental_rerun()
+            st.rerun()
     with cols[1]:
-        if st.button("Delete", key=f"btn_del_{task['id']}", help="Delete task"):
+        if st.button("Delete", key=f'del_{task["id"]}'):
             delete_task(task['id'])
-            st.experimental_rerun()
+            st.rerun()
 
-time_input = st.text_input("Enter mission time (e.g., 3:15 PM or 15:15)", key="text_time_input")
+time_input = st.text_input("Enter mission time (e.g. 3:15 PM or 15:15)", key='time_input')
 
 def validate_time(t):
-    for fmt in ("%I:%M %p", "%H:%M"):
+    for fmt in ['%I:%M %p', '%H:%M']:
         try:
-            return datetime.strptime(t.strip(), fmt).strftime("%I:%M %p")
+            return datetime.strptime(t.strip(), fmt).strftime('%I:%M %p')
         except:
             pass
     return None
 
-time_value = "12:00 PM"
+time_value = '12:00 PM'
 if time_input:
-    val = validate_time(time_input)
-    if val:
-        time_value = val
+    tv = validate_time(time_input)
+    if tv:
+        time_value = tv
     else:
-        st.error("Invalid time format. Use 3:15 PM or 15:15.")
+        st.error("Please enter valid time format e.g. 3:15 PM or 15:15")
 
-new_task = st.text_input("Add new mission", key="text_new_task")
-if st.button("Add Mission", key="btn_add_mission"):
+new_task = st.text_input('Add new mission', key='new_task')
+
+if st.button('Add Mission', key='add_mission_btn'):
     if new_task.strip():
         add_task(new_task.strip(), date_str, time_value, st.session_state['user'])
-        st.success(f"Mission scheduled for {time_value} added.")
-        st.experimental_rerun()
+        st.success(f'Mission scheduled at {time_value} added.')
+        st.rerun()
