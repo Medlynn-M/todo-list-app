@@ -181,7 +181,7 @@ def signup_ui():
         })
         st.session_state['registration_success'] = True
         st.session_state['show_register_form'] = True
-        st.experimental_rerun()
+        st.rerun()
 
 # Password Reset UI
 def forgot_password_ui():
