@@ -208,11 +208,17 @@ def signup_block():
 # -----------------------------------------------------
 def forgot_password_block():
     st.header("🔑 Reset Your Secret Code")
+
     if "security_verified" not in st.session_state:
         st.session_state.security_verified = False
-    username = st.text_input("🌌 Enter Your Call Sign", key="reset_username")
+    if "reset_username" not in st.session_state:
+        st.session_state.reset_username = ""
+    if "user_record" not in st.session_state:
+        st.session_state.user_record = None
 
-    if st.button("📡 Verify Commander Identity"):
+    username = st.text_input("🌌 Enter Your Call Sign", key="reset_username_input")
+
+    if st.button("📡 Verify Commander Identity", key="verify_identity"):
         if not username:
             st.error("⚠️ Enter your Call Sign to proceed.")
         elif not username_exists(username):
@@ -223,26 +229,32 @@ def forgot_password_block():
             if not user_record or "SecurityQuestion" not in user_record.get("fields", {}):
                 st.error("⚠️ No security question set for this account.")
             else:
-                sec_q = user_record["fields"]["SecurityQuestion"]
-                sec_ans_hash = user_record["fields"].get("SecurityAnswerHash", "")
-                ans = st.text_input(f"🛡️ Answer your Security Question:\n*{sec_q}*", type="password", key="sec_answer")
+                st.session_state.reset_username = username
+                st.session_state.user_record = user_record
+                st.session_state.security_verified = False
+                st.experimental_rerun()
 
-                if st.button("🔓 Verify Security Answer"):
-                    input_ans = ans if ans else ""
-                    if hash_answer(input_ans) != sec_ans_hash:
-                        st.error("❌ Incorrect answer! Unable to reset Secret Code.")
-                    else:
-                        st.success("✅ Security clearance granted! You may now set a new Secret Code.")
-                        st.session_state.security_verified = True
-                        st.session_state.reset_username = username
-                        st.experimental_rerun()
+    if st.session_state.reset_username and not st.session_state.security_verified:
+        sec_q = st.session_state.user_record['fields']["SecurityQuestion"]
+        sec_ans_hash = st.session_state.user_record['fields'].get("SecurityAnswerHash", "")
+
+        ans = st.text_input(f"🛡️ Answer your Security Question:\n*{sec_q}*", type="password", key="sec_answer")
+
+        if st.button("🔓 Verify Security Answer", key="verify_answer"):
+            if not ans:
+                st.error("⚠️ You must answer the security question.")
+            elif hash_answer(ans) != sec_ans_hash:
+                st.error("❌ Incorrect answer! Unable to reset Secret Code.")
+            else:
+                st.session_state.security_verified = True
+                st.experimental_rerun()
 
     if st.session_state.security_verified:
         new_pw = st.text_input("🔐 Enter New Secret Code", type="password", key="new_pw")
         confirm_pw = st.text_input("🔐 Confirm New Secret Code", type="password", key="confirm_pw")
         st.caption("🛡️ Must be mission-grade: ≥8 chars, uppercase, lowercase, numeral, symbol.")
 
-        if st.button("✅ Reset Secret Code"):
+        if st.button("✅ Reset Secret Code", key="reset_pw"):
             if not new_pw or not confirm_pw:
                 st.error("⚠️ All fields required, Commander!")
             elif new_pw != confirm_pw:
@@ -253,6 +265,7 @@ def forgot_password_block():
                 st.success("🎉 Secret Code reset successful! Back to Launchpad to login.")
                 st.session_state.security_verified = False
                 st.session_state.reset_username = ""
+                st.session_state.user_record = None
                 if st.button("🚀 Back to Launchpad"):
                     st.session_state.mode = "login"
                     st.session_state.forgot_mode = False
@@ -287,6 +300,8 @@ if "security_verified" not in st.session_state:
     st.session_state.security_verified = False
 if "reset_username" not in st.session_state:
     st.session_state.reset_username = ""
+if "user_record" not in st.session_state:
+    st.session_state.user_record = None
 
 # -----------------------------------------------------
 # 🛸 Auth Sidebar
@@ -304,6 +319,9 @@ if not st.session_state.logged_in:
         login_block()
 
         if not st.session_state.show_register_form and not st.session_state.registration_success:
+            if st.button("❓ Forgot Secret Code?"):
+                st.session_state.forgot_mode = True
+                st.rerun()
             if st.button("✨ New here? Enlist your Call Sign"):
                 st.session_state.show_register_form = True
                 st.rerun()
@@ -315,10 +333,6 @@ if not st.session_state.logged_in:
                 if st.button("🔙 Already a Commander? Return to Launchpad"):
                     st.session_state.show_register_form = False
                     st.rerun()
-
-        if st.button("❓ Forgot Secret Code?"):
-            st.session_state.forgot_mode = True
-            st.rerun()
 
         st.stop()
 
