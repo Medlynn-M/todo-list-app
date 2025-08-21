@@ -107,43 +107,38 @@ def login_block():
 
     password = st.text_input("🔐 Enter Your Secret Code (Password)", type="password", key="login_password")
 
-    # Forgotten password text aligned right below password input
-    forgot_pwd_clicked = False
-    forgot_pwd_placeholder = st.empty()
-    forgot_pwd_placeholder.markdown("""
-        <div style="display:flex; justify-content:flex-end; margin-top:-15px; margin-bottom:10px;">
-            <a href="#" style="color:#ff6363; font-size:0.95em; text-decoration:underline; cursor:pointer;" id="forgot-link">❓ Forgot Secret Code?</a>
-        </div>
-        <script>
-        const link = window.parent.document.getElementById('forgot-link');
-        if(link) {
-            link.onclick = () =>  {
-                window.parent.postMessage({event: 'forgot_clicked'}, '*');
-                return false;
-            }
+    # Place Forgot Secret Code button as a right-aligned link below password input
+    cols = st.columns([3, 1])
+    cols[1].markdown("""
+        <style>
+        a.forgot-link {
+            color: #ff4b4b;
+            font-size: 0.9em;
+            text-decoration: underline;
+            cursor: pointer;
         }
-        </script>
+        a.forgot-link:hover {
+            color: #ff0000;
+        }
+        </style>
+        <a class="forgot-link">❓ Forgot Secret Code?</a>
     """, unsafe_allow_html=True)
 
-    # Streamlit does not support JS interaction fully,
-    # so fallback to treat the actual forgot button as well
-    if st.button("❓ Forgot Secret Code?", key="forgottext_small_button", help="Recover your Secret Code", use_container_width=False):
+    # Detect click on the "forgot link" using a workaround with a hidden button
+    if cols[1].button(" ", key="forgot_link_button", help="Click to reset your secret code"):
         st.session_state.forgot_mode = True
         st.experimental_rerun()
 
-    st.markdown(
-        """
-        <style>
-        /* Smaller, more compact buttons globally */
-        .stButton button {
-            padding: 0.3em 0.75em !important;
-            font-size: 0.90em !important;
-            border-radius: 6px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    # CSS to reduce all buttons globally to smaller, compact size
+    st.markdown("""
+    <style>
+    .stButton button {
+        padding: 0.3em 0.8em !important;
+        font-size: 0.9em !important;
+        border-radius: 6px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
     if st.button("🚀 Launch Mission Control", key="launchmc_small"):
         if not username or not password:
@@ -356,6 +351,7 @@ if not st.session_state.logged_in:
         login_block()
 
         if not st.session_state.show_register_form and not st.session_state.registration_success:
+            # Reordered "Forgot Secret Code?" above the "New here?" button
             if st.button("❓ Forgot Secret Code?", key="forgot_small_button"):
                 st.session_state.forgot_mode = True
                 st.rerun()
