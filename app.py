@@ -96,7 +96,7 @@ def login_ui():
     with cols[1]:
         if st.button('Forgot Code?', key='forgot_code_btn'):
             st.session_state['forgot_mode'] = True
-            st.experimental_rerun()
+            st.rerun()
 
     # Style buttons smaller
     st.markdown("""
@@ -123,7 +123,7 @@ def login_ui():
             return
         st.session_state['user'] = username
         st.session_state['logged_in'] = True
-        st.experimental_rerun()
+        st.rerun()
 
 # Signup UI
 SECURITY_QUESTIONS = [
@@ -141,7 +141,7 @@ def signup_ui():
         if st.button('Back to Login'):
             st.session_state['registration_success'] = False
             st.session_state['show_register_form'] = False
-            st.experimental_rerun()
+            st.rerun()
         return
     
     username = st.text_input('🏷️ Choose your Call Sign', key='signup_username', help='Case sensitive')
@@ -209,7 +209,7 @@ def forgot_password_ui():
         st.session_state['reset_username'] = username
         st.session_state['user_record'] = user_record
         st.session_state['security_verified'] = False
-        st.experimental_rerun()
+        st.rerun()
     
     if st.session_state['reset_username'] and not st.session_state['security_verified']:
         question = st.session_state['user_record']['fields']['SecurityQuestion']
@@ -224,7 +224,7 @@ def forgot_password_ui():
                 st.error('Incorrect answer')
                 return
             st.session_state['security_verified'] = True
-            st.experimental_rerun()
+            st.rerun()
     
     if st.session_state['security_verified']:
         new_password = st.text_input('New Secret Code', type='password', key='new_password')
@@ -247,7 +247,7 @@ def forgot_password_ui():
                 st.session_state['user_record'] = None
                 if st.button('Back to Login'):
                     st.session_state['forgot_mode'] = False
-                    st.experimental_rerun()
+                    st.rerun()
             else:
                 st.error('Reset failed. Contact admin.')
 
@@ -255,7 +255,7 @@ def forgot_password_ui():
 def logout():
     st.session_state['user'] = ''
     st.session_state['logged_in'] = False
-    st.experimental_rerun()
+    st.rerun()
 
 # Initialize session variables
 for key, default in {
@@ -294,7 +294,7 @@ if not st.session_state['logged_in']:
             signup_ui()
             if st.button('Back to Login'):
                 st.session_state['show_register_form'] = False
-                st.experimental_rerun()
+                st.rerun()
         st.stop()
 
 # After login — main app
@@ -331,15 +331,15 @@ for task in tasks:
         new_completed = st.checkbox(task['task'], value=completed, key=f'task_{task["id"]}')
         if new_completed != completed:
             update_task_completion(task['id'], new_completed)
-            st.experimental_rerun()
+            st.rerun()
     with cols[1]:
         if st.button('🗑️', key=f'del_{task["id"]}', help='Delete mission'):
             delete_task(task['id'])
-            st.experimental_rerun()
+            st.rerun()
 
 new_task = st.text_input('Add new mission for today')
 if st.button('Add Mission'):
     if new_task.strip():
         add_task(new_task.strip(), selected_date_str, st.session_state['user'])
         st.success('Mission added!')
-        st.experimental_rerun()
+        st.rerun()
