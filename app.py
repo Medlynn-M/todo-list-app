@@ -12,11 +12,12 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-# Password hashing
+# -----------------------------------------------------
+# 🔒 Password utilities
+# -----------------------------------------------------
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
-# ✅ Strong password policy check
 def is_strong_password(password: str) -> bool:
     """Check if password meets complexity requirements"""
     if len(password) < 8:
@@ -31,27 +32,32 @@ def is_strong_password(password: str) -> bool:
         return False
     return True
 
-# ✅ Case-sensitive username check
+# -----------------------------------------------------
+# 👨‍🚀 User account utilities
+# -----------------------------------------------------
 def username_exists(username):
+    """Check if an exact case-sensitive username exists"""
     all_records = table.all()
     usernames = {r.get("fields", {}).get("User", "") for r in all_records}
-    return username in usernames   # exact match
+    return username in usernames
 
 def get_user_password_hash(username):
     all_records = table.all()
     for r in all_records:
         fields = r.get("fields", {})
-        if fields.get("User", "") == username:  # exact match
+        if fields.get("User", "") == username:
             return fields.get("PasswordHash", None)
     return None
 
+# -----------------------------------------------------
+# 📋 Task utilities
+# -----------------------------------------------------
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
     seen = set()
     tasks = []
     for r in all_records:
         fields = r.get("fields", {})
-        # ✅ exact match for user
         if fields.get("Date") == date_str and fields.get("User", "").strip() == user and fields.get("Task", "") != "[User Created]":
             task_text = fields.get("Task", "")
             if task_text.lower() not in seen:
@@ -77,18 +83,21 @@ def add_task(task_text, date_str, user):
 def delete_task(record_id):
     table.delete(record_id)
 
-def suggest_usernames(base_name):
-    suggestions = []
-    for i in range(1, 10):
-        suggestions.append(f"{base_name}{i}")
-        suggestions.append(f"{base_name}_{random.randint(10,99)}")
-    return suggestions
-
-# ---------------- LOGIN UI ----------------
+# -----------------------------------------------------
+# 🔐 Login UI
+# -----------------------------------------------------
 def login_block():
     st.header("👋 Welcome Back, Commander!")
-    username = st.text_input("🛰️ Enter Your Call Sign (Case-Sensitive Username)", key="login_username")
+
+    username = st.text_input(
+        "🛰️ Enter Your Call Sign",
+        key="login_username",
+        help="🛸 Case-Sensitive: 'StarCaptain' and 'starcaptain' are different Commanders. Choose wisely."
+    )
+    st.caption("💡 Call Signs are **CASE-SENSITIVE!** Every character matters in Mission Control (Apollo ≠ apollo).")
+
     password = st.text_input("🔐 Enter Your Secret Code (Password)", type="password", key="login_password")
+
     login_clicked = st.button("🚀 Launch Mission Control")
     if login_clicked:
         if not username or not password:
@@ -108,7 +117,9 @@ def login_block():
         return True
     return False
 
-# ---------------- SIGNUP UI ----------------
+# -----------------------------------------------------
+# 🛠️ Signup UI
+# -----------------------------------------------------
 def signup_block():
     st.header("🛠️ Launch New Mission: Create Your Commander Profile")
 
@@ -121,9 +132,16 @@ def signup_block():
             st.rerun()
         return
 
-    username = st.text_input("🌌 Choose Your Call Sign (Case-Sensitive Username)", key="reg_username")
+    username = st.text_input(
+        "🌌 Choose Your Call Sign",
+        key="reg_username",
+        help="🛸 Case-Sensitive: 'StarCaptain' and 'starcaptain' are different Commanders. Choose wisely."
+    )
+    st.caption("💡 Your Call Sign is CASE-SENSITIVE: 'Apollo' ≠ 'apollo'. Every letter locks in your unique identity!")
+
     password = st.text_input("🔐 Forge Your Secret Code (Password)", type="password", key="reg_password")
-    st.caption("🛡️ Secret Code must be mission-grade: Minimum 8 characters, containing at least one uppercase star, one lowercase planet, a number for coordinates, and a special symbol to unlock hyperspace portals.")
+    st.caption("🛡️ Secret Code must be mission-grade: ≥8 chars, with an UPPERCASE star, a lowercase planet, a number for coordinates, and a special symbol to unlock hyperspace portals.")
+
     password_confirm = st.text_input("🔐 Confirm Your Secret Code", type="password", key="reg_password_confirm")
 
     if st.button("✨ Enlist Me, Mission Control!"):
@@ -137,9 +155,8 @@ def signup_block():
             st.error("❌ Call Sign already claimed by another Commander. Choose a unique identifier.")
             return
         if not is_strong_password(password):
-            st.error("⚠️ Secret Code too weak! Your access key must be battle-ready: "
-                     "at least 8 characters, include an UPPERCASE star, a lowercase planet, "
-                     "a number for coordinates, and a special symbol to unlock hyperspace. 🌌")
+            st.error("⚠️ Secret Code too weak! Battle-ready keys require ≥8 chars, "
+                     "an UPPERCASE star, a lowercase planet, a number, and a special hyperspace symbol. 🌌")
             return
 
         # Save to Airtable
@@ -154,13 +171,17 @@ def signup_block():
         st.session_state.show_register_form = True
         st.rerun()
 
-# ---------------- LOGOUT ----------------
+# -----------------------------------------------------
+# 🔓 Logout
+# -----------------------------------------------------
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
     st.rerun()
 
-# ---------------- SESSION STATE INIT ----------------
+# -----------------------------------------------------
+# 🌌 App Core - Session Init
+# -----------------------------------------------------
 if "user" not in st.session_state:
     st.session_state.user = ""
 if "logged_in" not in st.session_state:
@@ -172,7 +193,9 @@ if "show_register_form" not in st.session_state:
 if "registration_success" not in st.session_state:
     st.session_state.registration_success = False
 
-# ---------------- SIDEBAR AUTH ----------------
+# -----------------------------------------------------
+# 🛸 Auth Sidebar
+# -----------------------------------------------------
 st.sidebar.title("🛸 Commander Authentication Center")
 
 if not st.session_state.logged_in:
@@ -193,7 +216,9 @@ if not st.session_state.logged_in:
 
     st.stop()
 
-# ---------------- MAIN APP ----------------
+# -----------------------------------------------------
+# 🌠 Main Mission Control
+# -----------------------------------------------------
 st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
 if st.sidebar.button("⏹️ Abort Mission: Log Out"):
     logout()
