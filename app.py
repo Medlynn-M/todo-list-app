@@ -12,7 +12,6 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
-# Utility functions for hashing and password checks
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
@@ -32,7 +31,6 @@ def is_strong_password(pw):
         return False
     return True
 
-# Checking user existence and fetching data
 def username_exists(username):
     all_records = table.all()
     usernames = {r.get("fields", {}).get("User", "") for r in all_records}
@@ -55,7 +53,6 @@ def reset_user_password(username, new_password):
             return True
     return False
 
-# Task handling
 def get_tasks_for_date_and_user(date_str, user):
     all_records = table.all()
     seen = set()
@@ -89,136 +86,152 @@ def add_task(task_text, date_str, user):
 def delete_task(record_id):
     table.delete(record_id)
 
-# Login UI
 def login_block():
     st.header("👋 Welcome Back, Commander!")
 
-    username = st.text_input(
-        "🛰️ Enter Your Call Sign",
-        key="login_username",
-        help="🛸 Case-sensitive: 'StarLord' and 'starlord' are different."
-    )
+    username = st.text_input("🛰️ Enter Your Call Sign",
+                             key="login_username",
+                             help="🛸 Case-sensitive: 'StarLord' and 'starlord' are different.")
+
     password = st.text_input("🔐 Enter Your Secret Code", type="password", key="login_password")
 
-    # Layout for "Forgot Secret Code?" aligned right below password input
     cols = st.columns([3, 1])
     with cols[1]:
-        st.markdown("""
+        st.markdown(
+            """
             <style>
-            .forgot-link {
-                font-size: 0.85em;
-                color: #ff4b4b;
-                text-decoration: underline;
-                cursor: pointer;
-                padding-top: 0;
+            div[data-testid="column"]:nth-child(2) button:first-of-type {
+                background: none !important;
+                border: none !important;
+                box-shadow: none !important;
+                color: #3384ff !important;
+                text-decoration: underline !important;
+                font-size: 0.85rem !important;
+                padding: 0 !important;
+                min-width: 0 !important;
+                height: 24px !important;
                 margin-top: -12px;
-                display: block;
+                margin-bottom: 12px;
                 float: right;
+                cursor: pointer;
             }
-            .forgot-link:hover {
-                color: #cc0000;
+            div[data-testid="column"]:nth-child(2) button:first-of-type:hover {
+                color: #0059cc !important;
+                text-decoration: underline;
             }
             </style>
-            <a class="forgot-link" href="#">❓ Forgot Secret Code?</a>
-            """, unsafe_allow_html=True)
-        if st.button(" ", key="forgot_button", help="Click to reset your secret code"):
-            st.session_state.forgot_mode = True
-            st.experimental_rerun()
+            """,
+            unsafe_allow_html=True
+        )
+        forgot_click = st.button("Forgot your code?", key="forgot_code_small")
 
-    # Global button style for smaller buttons
+    if forgot_click:
+        st.session_state.forgot_mode = True
+        st.experimental_rerun()
+
+    # Global button size adjustment
     st.markdown("""
-        <style>
-        .stButton>button {
-            font-size: 0.85rem !important;
-            padding: 0.25rem 0.6rem !important;
-            min-width: 140px;
-            border-radius: 6px !important;
-        }
-        </style>
+    <style>
+    .stButton > button {
+        font-size: 0.87rem !important;
+        padding: 0.25rem 0.6rem !important;
+        min-width: 140px !important;
+        height: 30px !important;
+        border-radius: 6px !important;
+    }
+    </style>
     """, unsafe_allow_html=True)
 
-    if st.button("🚀 Launch Mission Control", key="login_launch"):
+    if st.button("🚀 Launch Mission Control", key="launch_mc_small"):
         if not username or not password:
-            st.error("⚠️ Enter your Call Sign and Secret Code.")
+            st.error("Please enter your Call Sign and Secret Code.")
             return
         if not username_exists(username):
-            st.error("🛰️ Unknown Call Sign.")
+            st.error("Unknown Call Sign.")
             return
         pw_hash = get_user_password_hash(username)
         if pw_hash != hash_password(password):
-            st.error("❌ Secret Code mismatch.")
+            st.error("Incorrect Secret Code.")
             return
         st.session_state.user = username
         st.session_state.logged_in = True
-        st.success(f"Welcome aboard, Commander {username}!")
         st.experimental_rerun()
 
-# Signup UI
 SECURITY_QUESTIONS = [
     "What is your favorite spacecraft?",
     "What planet would you visit first?",
     "What was your childhood nickname?",
-    "Who is your all-time hero?",
-    "Custom (type your own)",
+    "Who is your favorite hero?",
+    "Custom question",
 ]
 
 def signup_block():
-    st.header("🛠️ Launch New Mission: Create Your Commander Profile")
+    st.header("🛠️ Create Your Commander Profile")
 
     if st.session_state.get("registration_success"):
-        st.success("🎉 Profile created! Prepare for launch.")
-        if st.button("Back to Login", key="signup_back"):
+        st.success("Profile created! Ready to launch.")
+        if st.button("Back to Login", key="back_to_login_post_signup"):
             st.session_state.registration_success = False
             st.session_state.show_register_form = False
             st.experimental_rerun()
         return
 
-    username = st.text_input("🌌 Choose Your Call Sign",
+    username = st.text_input("🏷️ Choose your call sign:",
                              key="signup_username",
                              help="Case-sensitive.")
 
-    password = st.text_input("🔐 Choose Your Secret Code", type="password", key="signup_password")
-    confirm_password = st.text_input("Confirm Secret Code", type="password", key="signup_password_confirm")
+    password = st.text_input("🔑 Choose Secret Code:",
+                             type="password",
+                             key="signup_password")
 
-    question = st.selectbox("🛡️ Security Question", options=SECURITY_QUESTIONS)
-    if question == "Custom (type your own)":
-        question = st.text_input("Enter your custom security question")
+    confirm_password = st.text_input("🔑 Confirm Secret Code:",
+                                    type="password",
+                                    key="signup_confirm_password")
 
-    answer = st.text_input("Security Answer (case-insensitive)", type="password", key="signup_answer")
+    question = st.selectbox("🛡️ Security question:", options=SECURITY_QUESTIONS)
+    if question == "Custom question":
+        question = st.text_input("Your custom question:")
 
-    st.markdown("""<span style="color:orange; font-weight:bold;">⚠️ Save your security question and answer! It’s the only way to recover your access.</span>""", unsafe_allow_html=True)
+    answer = st.text_input("Answer:",
+                          type="password",
+                          key="signup_answer")
 
-    if st.button("✨ Enlist Commander", key="signup_submit"):
+    st.markdown(
+        "<span style='color:orange; font-weight:bold;'>"
+        "Save your security question & answer carefully — it's your only way to recover access."
+        "</span>", unsafe_allow_html=True)
+
+    if st.button("Create Profile", key="signup_create"):
         if not username or not password or not confirm_password or not answer:
-            st.error("Complete all fields.")
+            st.error("Please complete all fields.")
             return
         if password != confirm_password:
             st.error("Passwords do not match.")
             return
         if username_exists(username):
-            st.error("Username already taken.")
+            st.error("That call sign is taken.")
             return
         if not is_strong_password(password):
-            st.error("Password must be at least 8 chars with uppercase, lowercase, digit, and symbol.")
+            st.error("Password must be 8+ chars with uppercase, lowercase, digit, and symbol.")
             return
-
+        
         table.create({
             "User": username,
             "PasswordHash": hash_password(password),
             "SecurityQuestion": question,
             "PasswordHash": hash_password(password),
-            "SecurityAnswerHash": hash_answer(answer),
+            "SecurityAnswer": hash_answer(answer),
             "Date": datetime.today().strftime("%Y-%m-%d"),
             "Task": "[User Created]",
             "Completed": True,
         })
+
         st.session_state.registration_success = True
         st.session_state.show_register_form = True
         st.experimental_rerun()
 
-# Forgot Password UI
-def forgot_password_block():
-    st.header("🔑 Reset Your Secret Code")
+def forgot_password_flow():
+    st.header("🔑 Reset your Secret Code")
 
     if "security_verified" not in st.session_state:
         st.session_state.security_verified = False
@@ -227,20 +240,22 @@ def forgot_password_block():
     if "user_record" not in st.session_state:
         st.session_state.user_record = None
 
-    username = st.text_input("🌌 Enter Your Call Sign", key="reset_username")
+    username = st.text_input("Enter your Call Sign:", key="reset_username")
 
-    if st.button("📡 Verify Identity", key="verify_identity"):
+    if st.button("Verify Identity", key="verify_identity"):
         if not username:
-            st.error("Enter username")
+            st.error("Enter your Call Sign.")
             return
         if not username_exists(username):
-            st.error("Unknown username")
+            st.error("Unknown Call Sign.")
             return
+        
         all_records = table.all()
         user_record = next((r for r in all_records if r.get("fields", {}).get("User") == username), None)
         if not user_record or "SecurityQuestion" not in user_record.get("fields"):
-            st.error("No security question set.")
+            st.error("No security question setup.")
             return
+
         st.session_state.reset_username = username
         st.session_state.user_record = user_record
         st.session_state.security_verified = False
@@ -248,13 +263,13 @@ def forgot_password_block():
 
     if st.session_state.reset_username and not st.session_state.security_verified:
         question = st.session_state.user_record['fields']["SecurityQuestion"]
-        answer_hash = st.session_state.user_record['fields'].get("SecurityAnswerHash", "")
+        answer_hash = st.session_state.user_record['fields'].get("SecurityAnswer", "")
 
-        answer = st.text_input(f"Answer the security question:\n*{question}*", type="password", key="security_answer")
+        answer = st.text_input(f"Answer the question: *{question}*", type="password", key="security_answer")
 
-        if st.button("🔓 Verify Answer", key="verify_answer"):
+        if st.button("Verify Answer", key="verify_answer"):
             if not answer:
-                st.error("Answer required.")
+                st.error("Answer is required.")
                 return
             if hash_answer(answer) != answer_hash:
                 st.error("Incorrect answer.")
@@ -263,11 +278,11 @@ def forgot_password_block():
             st.experimental_rerun()
 
     if st.session_state.security_verified:
-        new_password = st.text_input("New Secret Code", type="password", key="new_password")
-        confirm_password = st.text_input("Confirm New Secret Code", type="password", key="confirm_new_password")
-        st.caption("Must be min 8 chars with uppercase, lowercase, digit, and symbol.")
+        new_password = st.text_input("Enter new Secret Code:", type="password", key="new_password")
+        confirm_password = st.text_input("Confirm new Secret Code:", type="password", key="confirm_new_password")
+        st.caption("Minimum 8 characters, uppercase, lowercase, digit, and symbol.")
 
-        if st.button("Reset Secret Code", key="reset_password"):
+        if st.button("Reset Secret Code", key="reset_code_button"):
             if not new_password or not confirm_password:
                 st.error("Complete all fields.")
                 return
@@ -275,26 +290,25 @@ def forgot_password_block():
                 st.error("Passwords do not match.")
                 return
             if not is_strong_password(new_password):
-                st.error("Password does not meet requirements.")
+                st.error("Password does not meet criteria.")
                 return
             if reset_user_password(st.session_state.reset_username, new_password):
-                st.success("Password reset successful! Return to login.")
+                st.success("Secret Code reset successful!")
                 st.session_state.security_verified = False
                 st.session_state.reset_username = ""
                 st.session_state.user_record = None
-                if st.button("Back to Login", key="back_to_login"):
+                if st.button("Return to Login"):
                     st.session_state.forgot_mode = False
                     st.experimental_rerun()
             else:
-                st.error("Error resetting password, contact support.")
+                st.error("Reset failed. Contact support.")
 
-# Logout
 def logout():
     st.session_state.user = ""
     st.session_state.logged_in = False
     st.experimental_rerun()
 
-# Session initialization defaults
+# Initialize session state variables
 for key, default in {
     "user": "",
     "logged_in": False,
@@ -309,79 +323,75 @@ for key, default in {
     if key not in st.session_state:
         st.session_state[key] = default
 
-# Sidebar and main app control
-st.sidebar.title("🛸 Commander Authentication Center")
+st.sidebar.title("🚀 Command Center")
 
 if not st.session_state.logged_in:
     if st.session_state.forgot_mode:
-        forgot_password_block()
-        if st.button("Back to Login", key="back_to_login_sidebar"):
+        forgot_password_flow()
+        if st.button("Back to Login"):
             st.session_state.forgot_mode = False
             st.experimental_rerun()
         st.stop()
     else:
         login_block()
         if not st.session_state.show_register_form and not st.session_state.registration_success:
-            # Put forgot before enlist button
-            if st.button("❓ Forgot Secret Code?", key="forgot_code_name_sidebar"):
+            if st.button("Forgot your code?"):
                 st.session_state.forgot_mode = True
                 st.experimental_rerun()
-            if st.button("✨ New here? Enlist your Call Sign", key="enlist_name_sidebar"):
+            if st.button("New Commander? Enlist here"):
                 st.session_state.show_register_form = True
                 st.experimental_rerun()
         if st.session_state.show_register_form:
             st.markdown("---")
             signup_block()
-            if not st.session_state.registration_success:
-                if st.button("Back to Login", key="back_to_login_signup"):
-                    st.session_state.show_register_form = False
-                    st.experimental_rerun()
+            if st.button("Back to Login"):
+                st.session_state.show_register_form = False
+                st.experimental_rerun()
         st.stop()
 
-# Main App after login
-st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
-if st.sidebar.button("Abort Mission", key="logout_button"):
+st.sidebar.title(f"Commander {st.session_state.user}")
+if st.sidebar.button("Abort Mission"):
     logout()
 
-selected_date = st.sidebar.date_input("Choose Mission Date", datetime.today())
+selected_date = st.sidebar.date_input("Mission Date", datetime.today())
 selected_date_str = selected_date.strftime("%Y-%m-%d")
-st.sidebar.markdown(f"#### 🗓️ Missions for {selected_date_str}")
 
 st.markdown("""
 <style>
 .stButton > button {
     font-size: 0.85rem !important;
-    padding: 5px 15px !important;
+    padding: 0.25rem 0.6rem !important;
+    min-width: 140px !important;
+    height: 32px !important;
     border-radius: 6px !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
 st.title(f"Commander {st.session_state.user}'s Mission Control")
-st.markdown("Let’s conquer today’s challenges!")
 
 tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
 
 if not tasks:
-    st.info("No missions for today. Add a new objective!")
+    st.info("No missions for today! Add your command.")
 
 for task in tasks:
     completed = task["completed"]
-    label = f"✅ {task['task']}" if completed else f"🔲 {task['task']}"
+    label = f"✅ {task['task']}" if completed else f"☐ {task['task']}"
 
-    cols = st.columns([9,1])
+    cols = st.columns([9, 1])
     with cols[0]:
-        new_completed = st.checkbox("", value=completed, key=f"cb_{task['id']}")
+        new_completed = st.checkbox("", value=completed, key=f"chk_{task['id']}")
         st.write(label)
         if new_completed != completed:
             update_task_completion(task['id'], new_completed)
             st.experimental_rerun()
     with cols[1]:
-        if st.button("🗑️", key=f"del_{task['id']}", help="Delete mission"):
+        if st.button("🗑️", key=f"del_{task['id']}"):
             delete_task(task['id'])
             st.experimental_rerun()
 
-new_task = st.text_input("Set a new mission:")
+new_task = st.text_input("New Mission:")
 if st.button("Add Mission"):
     if new_task.strip():
         add_task(new_task.strip(), selected_date_str, st.session_state.user)
