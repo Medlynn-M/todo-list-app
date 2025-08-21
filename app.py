@@ -4,7 +4,7 @@ from datetime import datetime
 import hashlib
 import re
 
-# Airtable configuration (matches your schema!)
+# Airtable configuration (matches your schema)
 AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
 AIRTABLE_TABLE_NAME = st.secrets["airtable"]["table_name"]
 AIRTABLE_API_KEY = st.secrets["airtable"]["token"]
@@ -27,7 +27,6 @@ def is_strong_password(password):
         and re.search(r"\W", password)
     )
 
-# User/account ops
 def username_exists(username):
     for record in table.all():
         if record["fields"].get("User") == username:
@@ -47,7 +46,6 @@ def reset_user_password(username, new_password):
             return True
     return False
 
-# Task management
 def get_tasks(user, date_str):
     tasks = []
     seen = set()
@@ -86,13 +84,10 @@ def add_task(text, date_str, user):
 def delete_task(record_id):
     table.delete(record_id)
 
-# Login UI
 def login_ui():
     st.header("🚀 Commander Access Portal")
     username = st.text_input("🛰️ Call Sign", key="login_username", help="Case sensitive")
     password = st.text_input("🛡️ Secret Code", type="password", key="login_password")
-
-    # Place "Forgot Code?" small link-like button right-aligned under password input
     cols = st.columns([3, 1])
     with cols[1]:
         st.markdown("""
@@ -119,7 +114,6 @@ def login_ui():
         if st.button("Forgot Code?", key="forgot_code_btn"):
             st.session_state["forgot_mode"] = True
             st.rerun()
-
     st.markdown("""
     <style>
         .stButton > button {
@@ -131,7 +125,6 @@ def login_ui():
         }
     </style>
     """, unsafe_allow_html=True)
-
     if st.button("🎮 Launch Mission", key="login_btn"):
         if not username or not password:
             st.error("🚧 Enter your Call Sign and Secret Code.")
@@ -164,27 +157,22 @@ def signup_ui():
             st.session_state["show_register_form"] = False
             st.rerun()
         return
-
     username = st.text_input("🪐 Call Sign", key="signup_username", help="Unique and case sensitive")
     password = st.text_input("🔐 Set your Secret Code", key="signup_password", type="password")
-
-    # Themed password instruction below password field only
+    # Themed password requirements
     st.markdown(
         "<span style='color:#30d6ff;'>"
         "🛡️ Secret Code for interstellar clearance: at least 8 characters, with uppercase, lowercase, a number, and a symbol (e.g. <code>P@ssw0rd!</code>)"
         "</span>", unsafe_allow_html=True)
-
     confirm_password = st.text_input("🔐 Confirm Secret Code", key="signup_confirm_password", type="password")
     question = st.selectbox("🛡️ Choose a Security Question", options=SECURITY_QUESTIONS)
     if question == "Add your own":
         question = st.text_input("Custom Security Question")
     answer = st.text_input("Security Answer", type="password", key="signup_answer")
-
     st.markdown(
         "<span style='color:orange;'>"
         "⚠️ Safeguard your security question and answer. It's your only backup if your code is lost in deep space."
         "</span>", unsafe_allow_html=True)
-
     if st.button("✍️ Enlist as Commander"):
         if not username or not password or not confirm_password or not answer:
             st.error("🚧 All fields must be completed to join the fleet.")
@@ -198,7 +186,6 @@ def signup_ui():
         if not is_strong_password(password):
             st.error("🛑 Secret Code too weak for mission parameters.")
             return
-
         table.create({
             "User": username,
             "PasswordHash": hash_password(password),
@@ -213,48 +200,52 @@ def signup_ui():
         st.rerun()
 
 def forgot_password_ui():
+    # Use a 3-stage navigation for smooth Streamlit experience
     st.header("🛡 Commander Code Recovery")
-    if "security_verified" not in st.session_state:
-        st.session_state["security_verified"] = False
-    if "reset_username" not in st.session_state:
-        st.session_state["reset_username"] = ""
-    if "user_record" not in st.session_state:
-        st.session_state["user_record"] = None
-
-    username = st.text_input("Commander Call Sign", key="reset_username")
-    if st.button("🚨 Verify Identity"):
-        if not username:
-            st.error("🚧 Enter your Call Sign.")
-            return
-        if not username_exists(username):
-            st.error("🚫 Commander not found in base.")
-            return
-        records = table.all()
-        record = next((r for r in records if r["fields"].get("User") == username), None)
-        if not record or "SecurityQuestion" not in record["fields"]:
-            st.error("No Security Question on record.")
-            return
-        st.session_state["reset_username"] = username
-        st.session_state["user_record"] = record
-        st.session_state["security_verified"] = False
-        st.rerun()
-
-    if st.session_state["reset_username"] and not st.session_state["security_verified"]:
-        question = st.session_state["user_record"]["fields"]["SecurityQuestion"]
-        expected_hash = st.session_state["user_record"]["fields"].get("SecurityAnswerHash", "")
-        answer = st.text_input(f"Security Answer for Mission Clearance:\n{question}", key="security_answer", type="password")
-
+    if "forgot_stage" not in st.session_state:
+        st.session_state["forgot_stage"] = "username"  # "username", "security", "reset"
+    # --- Stage 1: Enter username ---
+    if st.session_state["forgot_stage"] == "username":
+        reset_username_in = st.text_input("Commander Call Sign", key="reset_username")
+        if st.button("🚨 Verify Identity"):
+            if not reset_username_in:
+                st.error("🚧 Enter your Call Sign.")
+                return
+            if not username_exists(reset_username_in):
+                st.error("🚫 Commander not found in base.")
+                return
+            records = table.all()
+            record = next((r for r in records if r["fields"].get("User") == reset_username_in), None)
+            if not record or "SecurityQuestion" not in record["fields"]:
+                st.error("No Security Question on record.")
+                return
+            st.session_state["reset_user_record"] = record
+            st.session_state["entered_reset_username"] = reset_username_in
+            st.session_state["forgot_stage"] = "security"
+            st.rerun()
+        return
+    # --- Stage 2: Security question ---
+    if st.session_state["forgot_stage"] == "security":
+        record = st.session_state["reset_user_record"]
+        question = record["fields"]["SecurityQuestion"]
+        expected_hash = record["fields"].get("SecurityAnswerHash", "")
+        answer_in = st.text_input(f"Security Answer for Mission Clearance:\n{question}",
+                                key="security_answer", type="password")
         if st.button("✅ Submit Answer"):
-            if not answer:
+            if not answer_in:
                 st.error("Security answer required.")
                 return
-            if hash_answer(answer) != expected_hash:
+            if hash_answer(answer_in) != expected_hash:
                 st.error("Incorrect answer.")
                 return
-            st.session_state["security_verified"] = True
+            st.session_state["forgot_stage"] = "reset"
             st.rerun()
-
-    if st.session_state["security_verified"]:
+        if st.button("⬅ Back"):
+            st.session_state["forgot_stage"] = "username"
+            st.rerun()
+        return
+    # --- Stage 3: Reset password ---
+    if st.session_state["forgot_stage"] == "reset":
         new_password = st.text_input("Set new Secret Code", key="new_password", type="password")
         confirm_password = st.text_input("Confirm new Secret Code", key="confirm_password", type="password")
         st.caption("Min 8 chars, with uppercase, lowercase, number and symbol.")
@@ -268,21 +259,24 @@ def forgot_password_ui():
             if not is_strong_password(new_password):
                 st.error("New Secret Code does not meet mission readiness.")
                 return
-            if reset_user_password(st.session_state["reset_username"], new_password):
+            username = st.session_state["entered_reset_username"]
+            if reset_user_password(username, new_password):
                 st.success("Secret Code reset. Proceed to mission login.")
-                st.session_state["security_verified"] = False
-                st.session_state["reset_username"] = ""
-                st.session_state["user_record"] = None
-                if st.button("⬅ Return to Mission Login"):
-                    st.session_state["forgot_mode"] = False
-                    st.rerun()
+                del st.session_state["forgot_stage"]
+                del st.session_state["reset_user_record"]
+                del st.session_state["entered_reset_username"]
+                st.session_state["forgot_mode"] = False
+                st.rerun()
+        if st.button("⬅ Back"):
+            st.session_state["forgot_stage"] = "security"
+            st.rerun()
+        return
 
 def logout():
     st.session_state["user"] = ""
     st.session_state["logged_in"] = False
     st.rerun()
 
-# Session state defaults
 for key, default in {
         "user": "",
         "logged_in": False,
@@ -304,6 +298,9 @@ if not st.session_state["logged_in"]:
         forgot_password_ui()
         if st.button("⬅ Back to Login"):
             st.session_state["forgot_mode"] = False
+            if "forgot_stage" in st.session_state: del st.session_state["forgot_stage"]
+            if "reset_user_record" in st.session_state: del st.session_state["reset_user_record"]
+            if "entered_reset_username" in st.session_state: del st.session_state["entered_reset_username"]
             st.rerun()
         st.stop()
     else:
