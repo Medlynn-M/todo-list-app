@@ -107,34 +107,37 @@ def login_block():
 
     password = st.text_input("🔐 Enter Your Secret Code (Password)", type="password", key="login_password")
 
-    # Place Forgot Secret Code button as a right-aligned link below password input
+    # Right-align: place 'Forgot Secret Code?' link beneath the password input
     cols = st.columns([3, 1])
-    cols[1].markdown("""
+    with cols[1]:
+        forgot_clicked = st.button("❓ Forgot Secret Code?", key="forgot_text_inline")
+        st.markdown("""
         <style>
-        a.forgot-link {
-            color: #ff4b4b;
-            font-size: 0.9em;
-            text-decoration: underline;
-            cursor: pointer;
-        }
-        a.forgot-link:hover {
-            color: #ff0000;
+        div[data-testid="column"]:nth-of-type(2) button {
+            color: #ff4b4b !important;
+            background: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            text-decoration: underline !important;
+            font-size: 0.98em !important;
+            padding-left: 0;
+            padding-right: 0;
+            margin-top: -6px;
+            margin-bottom: 0px;
+            float: right;
         }
         </style>
-        <a class="forgot-link">❓ Forgot Secret Code?</a>
-    """, unsafe_allow_html=True)
-
-    # Detect click on the "forgot link" using a workaround with a hidden button
-    if cols[1].button(" ", key="forgot_link_button", help="Click to reset your secret code"):
+        """, unsafe_allow_html=True)
+    if forgot_clicked:
         st.session_state.forgot_mode = True
         st.experimental_rerun()
 
-    # CSS to reduce all buttons globally to smaller, compact size
+    # Global small button styling
     st.markdown("""
     <style>
     .stButton button {
         padding: 0.3em 0.8em !important;
-        font-size: 0.9em !important;
+        font-size: 0.92em !important;
         border-radius: 6px !important;
     }
     </style>
@@ -316,24 +319,26 @@ def logout():
 # -----------------------------------------------------
 # 🌌 App Core - Session Init
 # -----------------------------------------------------
-if "user" not in st.session_state:
-    st.session_state.user = ""
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "mode" not in st.session_state:
-    st.session_state.mode = "login"
-if "show_register_form" not in st.session_state:
-    st.session_state.show_register_form = False
-if "registration_success" not in st.session_state:
-    st.session_state.registration_success = False
-if "forgot_mode" not in st.session_state:
-    st.session_state.forgot_mode = False
-if "security_verified" not in st.session_state:
-    st.session_state.security_verified = False
-if "reset_username" not in st.session_state:
-    st.session_state.reset_username = ""
-if "user_record" not in st.session_state:
-    st.session_state.user_record = None
+for key in ["user", "logged_in", "mode", "show_register_form", "registration_success", "forgot_mode", "security_verified", "reset_username", "user_record"]:
+    if key not in st.session_state:
+        if key == "user":
+            st.session_state[key] = ""
+        elif key == "logged_in":
+            st.session_state[key] = False
+        elif key == "mode":
+            st.session_state[key] = "login"
+        elif key == "show_register_form":
+            st.session_state[key] = False
+        elif key == "registration_success":
+            st.session_state[key] = False
+        elif key == "forgot_mode":
+            st.session_state[key] = False
+        elif key == "security_verified":
+            st.session_state[key] = False
+        elif key == "reset_username":
+            st.session_state[key] = ""
+        elif key == "user_record":
+            st.session_state[key] = None
 
 # -----------------------------------------------------
 # 🛸 Auth Sidebar
@@ -343,7 +348,7 @@ st.sidebar.title("🛸 Commander Authentication Center")
 if not st.session_state.logged_in:
     if st.session_state.forgot_mode:
         forgot_password_block()
-        if st.button("🔙 Back to Login"):
+        if st.button("🔙 Back to Login", key="back_to_login_small"):
             st.session_state.forgot_mode = False
             st.rerun()
         st.stop()
@@ -351,7 +356,7 @@ if not st.session_state.logged_in:
         login_block()
 
         if not st.session_state.show_register_form and not st.session_state.registration_success:
-            # Reordered "Forgot Secret Code?" above the "New here?" button
+            # Forgot Secret Code? button ABOVE New user registration button
             if st.button("❓ Forgot Secret Code?", key="forgot_small_button"):
                 st.session_state.forgot_mode = True
                 st.rerun()
