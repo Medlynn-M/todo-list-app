@@ -179,7 +179,9 @@ def forgot_password_ui():
     st.header("Password Recovery")
     if 'forgot_stage' not in st.session_state or st.session_state['forgot_stage'] is None:
         st.session_state['forgot_stage'] = 'username'
-    if st.session_state['forgot_stage']=='username':
+
+    # stage: username
+    if st.session_state['forgot_stage'] == 'username':
         uname = st.text_input("Enter your Call Sign", key='recover_username')
         if st.button("Verify", key='recover_verify'):
             if not uname:
@@ -192,7 +194,7 @@ def forgot_password_ui():
                     st.error("No security question set for this account.")
                 else:
                     st.session_state['recover_record'] = record
-                    st.session_state['recover_username'] = uname
+                    st.session_state['recover_stage_username'] = uname  # new session key, not the text_input's key
                     st.session_state['forgot_stage'] = 'security'
                     st.rerun()
     if st.session_state['forgot_stage']=='security':
@@ -223,9 +225,10 @@ def forgot_password_ui():
             elif not is_strong_password(new_password):
                 st.error("Password is too weak")
             else:
-                if reset_user_password(st.session_state['recover_username'], new_password):
+                # Use recover_stage_username, not recover_username from text_input
+                if reset_user_password(st.session_state['recover_stage_username'], new_password):
                     st.success("Password reset successful! Please login")
-                    for key in ['forgot_stage','recover_record','recover_username']:
+                    for key in ['forgot_stage','recover_record','recover_stage_username']:
                         if key in st.session_state:
                             del st.session_state[key]
                     st.session_state['forgot_mode'] = False
@@ -236,7 +239,7 @@ def forgot_password_ui():
     st.markdown("---")
     if st.button("Back to Login", key='recover_back_to_login'):
         st.session_state['forgot_mode'] = False
-        for key in ['forgot_stage','recover_record','recover_username']:
+        for key in ['forgot_stage','recover_record','recover_stage_username']:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
@@ -255,7 +258,7 @@ for key, default in {
     'forgot_mode': False,
     'forgot_stage': None,
     'recover_record': None,
-    'recover_username': None,
+    'recover_stage_username': None,
 }.items():
     if key not in st.session_state:
         st.session_state[key] = default
