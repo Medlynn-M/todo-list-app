@@ -232,7 +232,7 @@ def forgot_password_block():
                 st.session_state.reset_username = username
                 st.session_state.user_record = user_record
                 st.session_state.security_verified = False
-                st.experimental_rerun()
+                st.rerun()
 
     if st.session_state.reset_username and not st.session_state.security_verified:
         sec_q = st.session_state.user_record['fields']["SecurityQuestion"]
@@ -247,7 +247,7 @@ def forgot_password_block():
                 st.error("❌ Incorrect answer! Unable to reset Secret Code.")
             else:
                 st.session_state.security_verified = True
-                st.experimental_rerun()
+                st.rerun()
 
     if st.session_state.security_verified:
         new_pw = st.text_input("🔐 Enter New Secret Code", type="password", key="new_pw")
@@ -269,7 +269,7 @@ def forgot_password_block():
                 if st.button("🚀 Back to Launchpad"):
                     st.session_state.mode = "login"
                     st.session_state.forgot_mode = False
-                    st.experimental_rerun()
+                    st.rerun()
             else:
                 st.error("⚠️ Error: Could not reset password. Contact Mission Control.")
 
