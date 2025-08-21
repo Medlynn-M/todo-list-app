@@ -1,6 +1,6 @@
 import streamlit as st
 from pyairtable import Table
-from datetime import datetime, time
+from datetime import datetime
 import hashlib
 import re
 
@@ -27,7 +27,6 @@ def is_strong_password(password):
         and re.search(r"\W", password)
     )
 
-# User/account related functions
 def username_exists(username):
     for record in table.all():
         if record["fields"].get("User") == username:
@@ -47,7 +46,6 @@ def reset_user_password(username, new_password):
             return True
     return False
 
-# Task management
 def get_tasks(user, date_str):
     tasks = []
     seen = set()
@@ -66,7 +64,7 @@ def get_tasks(user, date_str):
                         "id": record["id"],
                         "task": task_text,
                         "completed": f.get("Completed", False),
-                        "time_slot": f.get("TimeSlot", ""),  # TimeSlot now supported
+                        "time_slot": f.get("TimeSlot", ""),
                     }
                 )
     return sorted(tasks, key=lambda x: (x["time_slot"], x["task"]))
@@ -80,7 +78,17 @@ def add_task(text, date_str, time_str, user):
 def delete_task(record_id):
     table.delete(record_id)
 
-# Login UI
+# Validate time input: 12h with AM/PM or 24h format, return formatted 12h string or None
+def validate_time_string(t_str):
+    for fmt in ("%I:%M %p", "%H:%M"):
+        try:
+            return datetime.strptime(t_str.strip(), fmt).strftime("%I:%M %p")
+        except:
+            continue
+    return None
+
+# --- UI Sections ---
+
 def login_ui():
     st.header("🚀 Commander Access Portal")
     username = st.text_input("🛰️ Call Sign", key="login_username", help="Case sensitive")
@@ -111,7 +119,7 @@ def login_ui():
             st.session_state["forgot_mode"] = True
             st.rerun()
     st.markdown("""
-    <style>
+        <style>
         .stButton > button {
             padding: 0.25rem 0.6rem !important;
             font-size: 0.88rem !important;
@@ -119,7 +127,7 @@ def login_ui():
             height: 32px !important;
             border-radius: 6px !important;
         }
-    </style>""", unsafe_allow_html=True)
+        </style>""", unsafe_allow_html=True)
     if st.button("🎮 Launch Mission", key="login_btn"):
         if not username or not password:
             st.error("🚧 Enter your Call Sign and Secret Code.")
@@ -154,9 +162,11 @@ def signup_ui():
         return
     username = st.text_input("🪐 Call Sign", key="signup_username", help="Unique and case sensitive")
     password = st.text_input("🔐 Set your Secret Code", key="signup_password", type="password")
+    # Password requirements warning below password field
     st.markdown(
         "<span style='color:#30d6ff;'>"
-        "🛡️ Secret Code: min 8 chars, with uppercase, lowercase, number, and symbol (e.g., <code>P@ssw0rd!</code>)"
+        "🛡️ Secret Code: at least 8 characters with uppercase, lowercase, number, and symbol "
+        "(e.g., <code>P@ssw0rd!</code>)"
         "</span>", unsafe_allow_html=True)
     confirm_password = st.text_input("🔐 Confirm Secret Code", key="signup_confirm_password", type="password")
     question = st.selectbox("🛡️ Choose Security Question", options=SECURITY_QUESTIONS)
@@ -165,17 +175,17 @@ def signup_ui():
     answer = st.text_input("Security Answer", key="signup_answer", type="password")
     st.markdown(
         "<span style='color:orange;'>"
-        "⚠️ Save your security question and answer — only way to recover if code is lost."
+        "⚠️ Save your security question & answer - your only recovery method."
         "</span>", unsafe_allow_html=True)
     if st.button("✍️ Enlist as Commander"):
         if not username or not password or not confirm_password or not answer:
-            st.error("⚠️ All fields mandatory.")
+            st.error("⚠️ All fields are required.")
             return
         if password != confirm_password:
             st.error("🚫 Secret Codes must match.")
             return
         if username_exists(username):
-            st.error("🚫 Call Sign taken.")
+            st.error("🚫 Call Sign already taken.")
             return
         if not is_strong_password(password):
             st.error("🛑 Secret Code too weak.")
@@ -208,7 +218,7 @@ def forgot_password_ui():
                 return
             record = next((r for r in table.all() if r["fields"].get("User") == reset_username), None)
             if not record or "SecurityQuestion" not in record["fields"]:
-                st.error("No Security Question on record.")
+                st.error("No Security Question set.")
                 return
             st.session_state["reset_record"] = record
             st.session_state["entered_reset_username"] = reset_username
@@ -239,10 +249,10 @@ def forgot_password_ui():
         st.caption("Min 8 chars, with uppercase, lowercase, number & symbol.")
         if st.button("🛡 Reset Code"):
             if not new_password or not confirm_password:
-                st.error("Fill all reset fields.")
+                st.error("Complete all reset fields.")
                 return
             if new_password != confirm_password:
-                st.error("Codes must match.")
+                st.error("Secret Codes must match.")
                 return
             if not is_strong_password(new_password):
                 st.error("Secret Code too weak.")
@@ -286,9 +296,12 @@ if not st.session_state["logged_in"]:
         forgot_password_ui()
         if st.button("⬅ Back to Login"):
             st.session_state["forgot_mode"] = False
-            if "forgot_stage" in st.session_state: del st.session_state["forgot_stage"]
-            if "reset_record" in st.session_state: del st.session_state["reset_record"]
-            if "entered_reset_username" in st.session_state: del st.session_state["entered_reset_username"]
+            if "forgot_stage" in st.session_state:
+                del st.session_state["forgot_stage"]
+            if "reset_record" in st.session_state:
+                del st.session_state["reset_record"]
+            if "entered_reset_username" in st.session_state:
+                del st.session_state["entered_reset_username"]
             st.rerun()
         st.stop()
     else:
@@ -327,7 +340,7 @@ st.title(f"Commander {st.session_state['user']}'s Mission Control")
 
 tasks = get_tasks(st.session_state['user'], date_str)
 if not tasks:
-    st.info("No missions logged for today.")
+    st.info("No missions logged today.")
 
 for task in tasks:
     cols = st.columns([9, 1])
@@ -342,13 +355,27 @@ for task in tasks:
             delete_task(task["id"])
             st.rerun()
 
-# Time picker added for mission scheduling
-slot_time = st.time_input("Select time slot (12-hour AM/PM):", value=time(12, 0))
-time_str = slot_time.strftime("%I:%M %p")
+# Flexible time input - accepts '3:27 PM' or '15:27' etc
+time_input = st.text_input("Enter mission time (e.g., 3:27 PM or 15:27):")
+
+def validate_time_string(t_str):
+    for fmt in ("%I:%M %p", "%H:%M"):
+        try:
+            return datetime.strptime(t_str.strip(), fmt).strftime("%I:%M %p")
+        except:
+            continue
+    return None
+
+if time_input:
+    time_str = validate_time_string(time_input)
+    if time_str is None:
+        st.error("Enter time as '3:27 PM' or '15:27' 24-hour format.")
+else:
+    time_str = "12:00 PM"  # default
 
 new_task = st.text_input("Add new mission")
 if st.button("🚀 Submit Mission"):
-    if new_task.strip():
+    if new_task.strip() and time_str:
         add_task(new_task.strip(), date_str, time_str, st.session_state["user"])
-        st.success(f"Mission scheduled at {time_str} uploaded.")
+        st.success(f"Mission scheduled at {time_str} added.")
         st.rerun()
