@@ -3,7 +3,7 @@ from pyairtable import Table
 from datetime import datetime
 import hashlib
 import random
-import re  # <-- for regex password validation
+import re  # for password validation
 
 # Airtable config
 AIRTABLE_BASE_ID = st.secrets["airtable"]["base_id"]
@@ -12,20 +12,36 @@ AIRTABLE_TOKEN = st.secrets["airtable"]["token"]
 
 table = Table(AIRTABLE_TOKEN, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
 
+# Password hashing
 def hash_password(pw):
     return hashlib.sha256(pw.encode()).hexdigest()
 
-# ✅ Case-sensitive username check (removed .lower())
+# ✅ Strong password policy check
+def is_strong_password(password: str) -> bool:
+    """Check if password meets complexity requirements"""
+    if len(password) < 8:
+        return False
+    if not re.search(r"[A-Z]", password):  # Uppercase
+        return False
+    if not re.search(r"[a-z]", password):  # Lowercase
+        return False
+    if not re.search(r"[0-9]", password):  # Digit
+        return False
+    if not re.search(r"[^A-Za-z0-9]", password):  # Special char
+        return False
+    return True
+
+# ✅ Case-sensitive username check
 def username_exists(username):
     all_records = table.all()
     usernames = {r.get("fields", {}).get("User", "") for r in all_records}
-    return username in usernames
+    return username in usernames   # exact match
 
 def get_user_password_hash(username):
     all_records = table.all()
     for r in all_records:
         fields = r.get("fields", {})
-        if fields.get("User", "") == username:  # ✅ case-sensitive match
+        if fields.get("User", "") == username:  # exact match
             return fields.get("PasswordHash", None)
     return None
 
@@ -35,6 +51,7 @@ def get_tasks_for_date_and_user(date_str, user):
     tasks = []
     for r in all_records:
         fields = r.get("fields", {})
+        # ✅ exact match for user
         if fields.get("Date") == date_str and fields.get("User", "").strip() == user and fields.get("Task", "") != "[User Created]":
             task_text = fields.get("Task", "")
             if task_text.lower() not in seen:
@@ -67,20 +84,7 @@ def suggest_usernames(base_name):
         suggestions.append(f"{base_name}_{random.randint(10,99)}")
     return suggestions
 
-# ✅ Strong password policy function
-def is_strong_password(password):
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):  # Uppercase
-        return False
-    if not re.search(r"[a-z]", password):  # Lowercase
-        return False
-    if not re.search(r"[0-9]", password):  # Digit
-        return False
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):  # Special char
-        return False
-    return True
-
+# Login block
 def login_block():
     st.header("👋 Welcome Back, Commander!")
     username = st.text_input("Your Call Sign (Username)", key="login_username")
@@ -104,6 +108,7 @@ def login_block():
         return True
     return False
 
+# Signup block
 def signup_block():
     st.header("🛠️ Launch New Mission: Create Your Commander Profile")
 
@@ -130,7 +135,7 @@ def signup_block():
         if username_exists(username):
             st.error("Call sign already taken by another commander. Choose a different one.")
             return
-        # ✅ Password strength validation
+        # ✅ enforce strong password rule
         if not is_strong_password(password):
             st.error("Secret code too weak! Must be at least 8 chars & include uppercase, lowercase, number, and symbol.")
             return
@@ -144,3 +149,107 @@ def signup_block():
         st.session_state.registration_success = True
         st.session_state.show_register_form = True
         st.rerun()
+
+# Logout
+def logout():
+    st.session_state.user = ""
+    st.session_state.logged_in = False
+    st.rerun()
+
+# Initialize session state
+if "user" not in st.session_state:
+    st.session_state.user = ""
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "mode" not in st.session_state:
+    st.session_state.mode = "login"
+if "show_register_form" not in st.session_state:
+    st.session_state.show_register_form = False
+if "registration_success" not in st.session_state:
+    st.session_state.registration_success = False
+
+# Sidebar authentication
+st.sidebar.title("🛸 Commander Authentication Center")
+
+if not st.session_state.logged_in:
+    login_block()
+
+    if not st.session_state.show_register_form and not st.session_state.registration_success:
+        if st.button("New here? Enroll your call sign ✨"):
+            st.session_state.show_register_form = True
+            st.rerun()
+
+    if st.session_state.show_register_form:
+        st.markdown("---")
+        signup_block()
+        if not st.session_state.registration_success:
+            if st.button("Already a Commander? Return to Launchpad 👈"):
+                st.session_state.show_register_form = False
+                st.rerun()
+
+    st.stop()
+
+# After login
+st.sidebar.title(f"🧑‍🚀 Commander {st.session_state.user}")
+if st.sidebar.button("Abort Mission: Log Out"):
+    logout()
+
+selected_date = st.sidebar.date_input("🎯 Select Mission Date", datetime.today())
+selected_date_str = selected_date.strftime("%Y-%m-%d")
+st.sidebar.markdown(f"#### Missions for {selected_date_str}")
+
+st.markdown("""
+    <style>
+        .completed-label {color: #43ea54; font-weight: bold;}
+        .incomplete-label {color: #fa4372; font-weight: bold;}
+        .delete-btn button {background: #fa2656;}
+        .add-btn button {background: #ffe766; color: black;}
+    </style>
+    """, unsafe_allow_html=True)
+
+st.title(f"🧑‍🚀 Commander {st.session_state.user}'s Mission Control")
+st.markdown("#### Every mission counts. Let's conquer today's challenges! 🚀")
+
+tasks = get_tasks_for_date_and_user(selected_date_str, st.session_state.user)
+
+if not tasks:
+    st.info("No missions logged for this date. Ready to add a new objective? 🛰️")
+
+for task in tasks:
+    completed = task.get("completed", False)
+    label_text = task["task"]
+    if completed:
+        label = f"<span class='completed-label'>🌟 Completed: {label_text}</span>"
+    else:
+        label = f"<span class='incomplete-label'>💡 Pending: {label_text}</span>"
+
+    col1, col2 = st.columns([9, 1])
+    with col1:
+        new_completed = st.checkbox("", value=completed, key=f"{task['id']}_checkbox")
+        st.markdown(label, unsafe_allow_html=True)
+        if new_completed != completed:
+            update_task_completion(task["id"], new_completed)
+            st.rerun()
+    with col2:
+        st.markdown('<div class="delete-btn">', unsafe_allow_html=True)
+        if st.button("🗑️", key=f"{task['id']}_delete", help="Delete this mission"):
+            delete_task(task["id"])
+            st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown("### 📝 Set a new mission:")
+new_task = st.text_input("What objective shall we pursue today?")
+
+st.markdown('<div class="add-btn">', unsafe_allow_html=True)
+if st.button("🚀 Add Mission"):
+    if new_task.strip():
+        add_task(new_task.strip(), selected_date_str, st.session_state.user)
+        st.success("Mission accepted! Onward, Commander!")
+        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+---
+**Tip:** Tick the checkbox to mark a mission complete, or use the bin icon to remove it.  
+Stay sharp, Commander. Your legacy awaits! 🌟
+""")
