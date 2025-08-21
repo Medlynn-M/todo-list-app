@@ -208,57 +208,57 @@ def signup_block():
 # -----------------------------------------------------
 def forgot_password_block():
     st.header("🔑 Reset Your Secret Code")
+    if "security_verified" not in st.session_state:
+        st.session_state.security_verified = False
     username = st.text_input("🌌 Enter Your Call Sign", key="reset_username")
-    verify_clicked = st.button("📡 Verify Commander Identity")
 
-    if verify_clicked:
+    if st.button("📡 Verify Commander Identity"):
         if not username:
             st.error("⚠️ Enter your Call Sign to proceed.")
-            return
-        if not username_exists(username):
+        elif not username_exists(username):
             st.error("🛰️ Unknown Call Sign! No Commander registered with that identity.")
-            return
-        all_records = table.all()
-        user_record = next((r for r in all_records if r.get("fields", {}).get("User", "") == username), None)
-        if not user_record or "SecurityQuestion" not in user_record.get("fields", {}):
-            st.error("⚠️ No security question set for this account.")
-            return
-        sec_q = user_record["fields"]["SecurityQuestion"]
-        sec_ans_hash = user_record["fields"].get("SecurityAnswerHash", "")
+        else:
+            all_records = table.all()
+            user_record = next((r for r in all_records if r.get("fields", {}).get("User", "") == username), None)
+            if not user_record or "SecurityQuestion" not in user_record.get("fields", {}):
+                st.error("⚠️ No security question set for this account.")
+            else:
+                sec_q = user_record["fields"]["SecurityQuestion"]
+                sec_ans_hash = user_record["fields"].get("SecurityAnswerHash", "")
+                ans = st.text_input(f"🛡️ Answer your Security Question:\n*{sec_q}*", type="password", key="sec_answer")
 
-        ans = st.text_input(f"🛡️ Answer your Security Question:\n*{sec_q}*", type="password", key="sec_answer")
-        verify_answer_clicked = st.button("🔓 Verify Security Answer")
+                if st.button("🔓 Verify Security Answer"):
+                    input_ans = ans if ans else ""
+                    if hash_answer(input_ans) != sec_ans_hash:
+                        st.error("❌ Incorrect answer! Unable to reset Secret Code.")
+                    else:
+                        st.success("✅ Security clearance granted! You may now set a new Secret Code.")
+                        st.session_state.security_verified = True
+                        st.session_state.reset_username = username
+                        st.experimental_rerun()
 
-        if verify_answer_clicked:
-            input_ans = ans if ans else ""
-            if hash_answer(input_ans) != sec_ans_hash:
-                st.error("❌ Incorrect answer! Unable to reset Secret Code.")
-                return
-            st.success("✅ Security clearance granted! You may now set a new Secret Code.")
+    if st.session_state.security_verified:
+        new_pw = st.text_input("🔐 Enter New Secret Code", type="password", key="new_pw")
+        confirm_pw = st.text_input("🔐 Confirm New Secret Code", type="password", key="confirm_pw")
+        st.caption("🛡️ Must be mission-grade: ≥8 chars, uppercase, lowercase, numeral, symbol.")
 
-            new_pw = st.text_input("🔐 Enter New Secret Code", type="password", key="new_pw")
-            confirm_pw = st.text_input("🔐 Confirm New Secret Code", type="password", key="confirm_pw")
-            st.caption("🛡️ Must be mission-grade: ≥8 chars, uppercase, lowercase, numeral, symbol.")
-
-            reset_clicked = st.button("✅ Reset Secret Code")
-            if reset_clicked:
-                if not new_pw or not confirm_pw:
-                    st.error("⚠️ All fields required, Commander!")
-                    return
-                if new_pw != confirm_pw:
-                    st.error("❌ Codes don’t match! Check your entries.")
-                    return
-                if not is_strong_password(new_pw):
-                    st.error("⚠️ Secret Code too weak! Must be ≥8 chars, include uppercase, lowercase, number, and symbol.")
-                    return
-                if reset_user_password(username, new_pw):
-                    st.success("🎉 Secret Code reset successful! Back to Launchpad to login.")
-                    if st.button("🚀 Back to Launchpad"):
-                        st.session_state.mode = "login"
-                        st.session_state.forgot_mode = False
-                        st.rerun()
-                else:
-                    st.error("⚠️ Error: Could not reset password. Contact Mission Control.")
+        if st.button("✅ Reset Secret Code"):
+            if not new_pw or not confirm_pw:
+                st.error("⚠️ All fields required, Commander!")
+            elif new_pw != confirm_pw:
+                st.error("❌ Codes don’t match! Check your entries.")
+            elif not is_strong_password(new_pw):
+                st.error("⚠️ Secret Code too weak! Must be ≥8 chars, include uppercase, lowercase, number, and symbol.")
+            elif reset_user_password(st.session_state.reset_username, new_pw):
+                st.success("🎉 Secret Code reset successful! Back to Launchpad to login.")
+                st.session_state.security_verified = False
+                st.session_state.reset_username = ""
+                if st.button("🚀 Back to Launchpad"):
+                    st.session_state.mode = "login"
+                    st.session_state.forgot_mode = False
+                    st.experimental_rerun()
+            else:
+                st.error("⚠️ Error: Could not reset password. Contact Mission Control.")
 
 # -----------------------------------------------------
 # 🔓 Logout
@@ -283,6 +283,10 @@ if "registration_success" not in st.session_state:
     st.session_state.registration_success = False
 if "forgot_mode" not in st.session_state:
     st.session_state.forgot_mode = False
+if "security_verified" not in st.session_state:
+    st.session_state.security_verified = False
+if "reset_username" not in st.session_state:
+    st.session_state.reset_username = ""
 
 # -----------------------------------------------------
 # 🛸 Auth Sidebar
