@@ -157,22 +157,22 @@ def signup_ui():
             st.rerun()
         return
     
-    username = st.text_input('🪐 Choose your Call Sign:', key='signup_username', help='Make it unique and Case Sensitive.')
+    username = st.text_input('🪐 Choose your Call Sign:', key='signup_username', help='Unique and Case Sensitive.')
+    
     password = st.text_input('🔐 Set your Secret Code:', key='signup_password', type='password')
+    # Password requirement warning appears directly beneath password field
+    st.markdown("""
+        <span style="color:#30d6ff; font-size:0.95em;">
+        🛡 <b>Your Secret Code must be:</b> 8+ characters, at least one <b>uppercase</b>, <b>lowercase</b>,
+        <b>number</b>, and <b>symbol</b> (e.g. <code>P@ssword1!</code>)
+        </span>
+    """, unsafe_allow_html=True)
+    
     confirm_password = st.text_input('🔐 Confirm your Secret Code:', key='signup_confirm_password', type='password')
     question = st.selectbox('🛡️ Select your Security Question:', options=SECURITY_QUESTIONS)
     if question == 'Add your own':
         question = st.text_input('Enter your custom question')
     answer = st.text_input('Security Answer:', key='signup_answer', type='password')
-    
-    st.markdown("""
-        <span style="color:#30d6ff; font-size:0.9em;">
-            🔒 <b>Your Secret Code must be:</b>
-            8+ characters, with at least one uppercase letter,
-            one lowercase letter, one number, and one symbol 
-            (e.g., <code>P@ssword1!</code>)
-        </span>
-    """, unsafe_allow_html=True)
     
     st.markdown("""
         <span style="color:orange; font-size:0.9em;">
@@ -275,13 +275,11 @@ def forgot_password_ui():
                     st.session_state['forgot_mode'] = False
                     st.rerun()
 
-# Logout function
 def logout():
     st.session_state['user'] = ''
     st.session_state['logged_in'] = False
     st.rerun()
 
-# Initialize session states
 for key, default in {
     'user': '',
     'logged_in': False,
@@ -298,7 +296,6 @@ for key, default in {
 
 st.sidebar.title("🚀 Command Center")
 
-# Navigation logic
 if not st.session_state['logged_in']:
     if st.session_state['forgot_mode']:
         forgot_password_ui()
@@ -319,7 +316,6 @@ if not st.session_state['logged_in']:
                 st.rerun()
         st.stop()
 
-# Main dashboard after login
 st.sidebar.title(f"Commander {st.session_state['user']}")
 if st.sidebar.button("🚪 Abort Mission"):
     logout()
@@ -327,7 +323,6 @@ if st.sidebar.button("🚪 Abort Mission"):
 selected_date = st.sidebar.date_input("Select Mission Date", datetime.today())
 date_str = selected_date.strftime("%Y-%m-%d")
 
-# Button Styling
 st.markdown("""
     <style>
     .stButton > button {
